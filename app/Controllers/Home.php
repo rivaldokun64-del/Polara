@@ -1,0 +1,705 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Models\DatasetModel;
+use App\Models\DataKunjunganModel;
+use App\Services\SpreadsheetService;
+use App\Services\DatasetProfiler;
+use Config\Database;
+
+class Home extends BaseController
+{
+    /**
+     * Halaman Beranda Publik Polara
+     */
+    public function index(): string
+    {
+        return view('home', [
+            'title'      => 'Polara — Platform Analitik Data Kesehatan',
+            'isLoggedIn' => (bool) session()->get('isLoggedIn'),
+            'nama'       => session()->get('nama'),
+            'role'       => session()->get('role'),
+        ]);
+    }
+
+    /**
+     * Halaman Dashboard Terproteksi Polara (Memerlukan Autentikasi)
+     */
+    public function dashboard(): string
+    {
+        $db = Database::connect('default');
+
+        // Global stats
+        $stats = [
+            'total_datasets'  => (int) $db->table('datasets')->countAllResults(),
+            'total_kunjungan' => (int) $db->table('data_kunjungan')->countAllResults(),
+            'total_analisis'  => (int) $db->table('analisis')->countAllResults(),
+            'total_users'     => (int) $db->table('users')->where('status', 'aktif')->countAllResults(),
+        ];
+
+        // Semua dataset untuk dropdown pemilihan
+        $datasetModel   = new DatasetModel();
+        $allDatasets    = $datasetModel->getWithUploader(100);
+        $recentDatasets = array_slice($allDatasets, 0, 5);
+
+        // Dataset aktif: prioritaskan yang berstatus 'siap'
+        $activeDataset = null;
+        foreach ($allDatasets as $ds) {
+            if ($ds['status'] === 'siap') {
+                $activeDataset = $ds;
+                break;
+            }
+        }
+        if (!$activeDataset && !empty($allDatasets)) {
+            $activeDataset = $allDatasets[0];
+        }
+
+        // Riwayat analisis terbaru
+        $recentAnalisis = $db->table('analisis')
+            ->select('analisis.*, datasets.nama_dataset, users.nama as nama_user')
+            ->join('datasets', 'datasets.id = analisis.id_dataset', 'left')
+            ->join('users', 'users.id = analisis.id_user', 'left')
+            ->orderBy('analisis.created_at', 'DESC')
+            ->limit(5)
+            ->get()
+            ->getResultArray();
+
+        return view('dashboard', [
+            'title'          => 'Dashboard — Polara',
+            'stats'          => $stats,
+            'allDatasets'    => $allDatasets,
+            'recentDatasets' => $recentDatasets,
+            'activeDataset'  => $activeDataset,
+            'recentAnalisis' => $recentAnalisis,
+        ]);
+    }
+
+    /**
+     * AJAX: Statistik dan grafik per dataset yang dipilih
+     * Mendukung semua jenis dataset (SIMRS maupun non-SIMRS)
+     */
+    public function datasetStats(int $datasetId)
+    {
+        $db = Database::connect('default');
+
+        // Validasi dataset exists
+        $dataset = $db->table('datasets')->where('id', $datasetId)->get()->getRowArray();
+        if (!$dataset) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Dataset tidak ditemukan']);
+        }
+
+        // Pengunggah
+        $uploader = $db->table('users')->where('id', (int)($dataset['id_user'] ?? 0))->get()->getRowArray();
+        $dataset['uploader_nama'] = $uploader['nama'] ?? 'Sistem';
+        $dataset['uploader_role'] = $uploader['role'] ?? 'analis';
+
+        // ── Auto-generate profiling_meta jika belum ada ──
+        $profilingMeta = !empty($dataset['profiling_meta']) ? json_decode($dataset['profiling_meta'], true) : null;
+        if (empty($profilingMeta) && !empty($dataset['nama_file_internal'])) {
+            $filePath = WRITEPATH . 'uploads/datasets/' . $dataset['nama_file_internal'];
+            if (file_exists($filePath)) {
+                try {
+                    $ss = new SpreadsheetService();
+                    $sample = $ss->readSample($filePath, 50);
+                    $profiler = new DatasetProfiler($ss);
+                    $profilingMeta = $profiler->profile($sample['headers'], $sample['sample_rows']);
+                    $db->table('datasets')->where('id', $datasetId)->update([
+                        'profiling_meta' => json_encode($profilingMeta, JSON_UNESCAPED_UNICODE)
+                    ]);
+                    $dataset['profiling_meta'] = json_encode($profilingMeta, JSON_UNESCAPED_UNICODE);
+                } catch (\Throwable $e) {
+                    // Abaikan jika gagal baca file
+                }
+            }
+        }
+
+        // ── Jumlah baris di data_kunjungan ──
+        $totalRows = (int) $db->table('data_kunjungan')->where('id_dataset', $datasetId)->countAllResults();
+
+        // ── Akumulasi total kunjungan / kasus ──
+        $sumQuery = $db->table('data_kunjungan')
+            ->select("SUM(CASE WHEN jumlah_kunjungan > 0 THEN jumlah_kunjungan WHEN jumlah > 0 THEN jumlah ELSE 1 END) as sum_cases")
+            ->where('id_dataset', $datasetId)
+            ->get()->getRowArray();
+        $totalCases = (int) ($sumQuery['sum_cases'] ?? 0);
+        if ($totalCases <= 0) {
+            $totalCases = $totalRows;
+        }
+
+        // ── Label total adaptif (e-Damika style) ──
+        $dsNameLower = strtolower(($dataset['nama_dataset'] ?? '') . ' ' . ($dataset['nama_file_asli'] ?? ''));
+        if (str_contains($dsNameLower, 'kematian') || str_contains($dsNameLower, 'jiwa')) {
+            $cardTotalLabel = 'Kasus Kematian';
+            $cardTotalSub = 'Jiwa / Kasus Tercatat';
+        } elseif (str_contains($dsNameLower, 'kunjungan')) {
+            $cardTotalLabel = 'Total Kunjungan';
+            $cardTotalSub = 'Kunjungan Tercatat';
+        } else {
+            $cardTotalLabel = 'Total Kasus / Data';
+            $cardTotalSub = 'Catatan Terdata';
+        }
+
+        // ── Akurasi Model Terbaik & Silhouette Clustering ──
+        $bestAccuracy = '-';
+        $bestAccuracyDesc = 'Belum dievaluasi';
+        $bestAnalisis = $db->table('analisis')
+            ->select('analisis.id, analisis.algoritma, evaluasi.nilai')
+            ->join('evaluasi', 'evaluasi.id_analisis = analisis.id', 'inner')
+            ->where('analisis.id_dataset', $datasetId)
+            ->like('evaluasi.metrik', 'Akurasi', 'both')
+            ->orderBy('evaluasi.nilai', 'DESC')
+            ->get()->getRowArray();
+        if ($bestAnalisis) {
+            $bestAccuracy = number_format((float)$bestAnalisis['nilai'], 1) . '%';
+            $bestAccuracyDesc = strtoupper($bestAnalisis['algoritma']);
+        }
+
+        $silhouetteScore = '-';
+        $silhouetteDesc = 'K-Means belum dijalankan';
+        $kmeansRun = $db->table('analisis')
+            ->select('evaluasi.nilai')
+            ->join('evaluasi', 'evaluasi.id_analisis = analisis.id', 'inner')
+            ->where('analisis.id_dataset', $datasetId)
+            ->where('analisis.algoritma', 'kmeans')
+            ->like('evaluasi.metrik', 'Silhouette', 'both')
+            ->orderBy('analisis.created_at', 'DESC')
+            ->get()->getRowArray();
+        if ($kmeansRun) {
+            $silhouetteScore = number_format((float)$kmeansRun['nilai'], 3);
+            $silhouetteDesc = 'K-Means dievaluasi';
+        }
+
+        $totalDatasetsCount = (int) $db->table('datasets')->countAllResults();
+        $totalDatasetsLabel = $totalDatasetsCount . ' Total Dataset';
+
+        // ── Kolom dan Atribut dataset ──
+        $columns = $db->table('dataset_columns')
+            ->where('id_dataset', $datasetId)
+            ->orderBy('posisi_kolom', 'ASC')
+            ->get()->getResultArray();
+
+        $totalFeatures = 0;
+        $targetColumnName = null;
+        foreach ($columns as &$c) {
+            $colNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)$c['nama_kolom_sumber']));
+            
+            // Kolom no, nomor, id, nik, jumlah, dan periode jangan pernah jadi atribut fitur
+            $isIdentitasOrMeasure = in_array($colNorm, ['no', 'nomor', 'id', 'norm', 'nomorrm', 'nik'], true) ||
+                in_array($c['pemetaan_atribut'] ?? '', ['identitas', 'jumlah', 'periode', 'jumlah_kunjungan'], true);
+
+            if ($isIdentitasOrMeasure) {
+                $c['is_fitur'] = 0;
+            }
+
+            if (!empty($c['is_fitur'])) {
+                $totalFeatures++;
+            }
+            if (!empty($c['is_target'])) {
+                $targetColumnName = $c['nama_kolom_sumber'];
+            }
+            // Tambah alias untuk frontend
+            $c['nama_kolom'] = $c['nama_kolom_sumber'] ?? $c['nama_kolom'] ?? 'Kolom';
+            $c['tipe_data'] = $c['tipe_terdeteksi'] ?? 'kategorik';
+            
+            // Tentukan peran semantik yang akurat
+            $detectedRole = $c['pemetaan_atribut'] ?? null;
+            if (empty($detectedRole) && !empty($profilingMeta['column_profiles'])) {
+                foreach ($profilingMeta['column_profiles'] as $cp) {
+                    if (($cp['name'] ?? '') === $c['nama_kolom_sumber']) {
+                        $detectedRole = $cp['role'] ?? null;
+                        break;
+                    }
+                }
+            }
+            $c['peran'] = $c['is_target'] ? 'target' : ($detectedRole ?: ($c['is_fitur'] ? 'fitur' : 'informasi'));
+        }
+        unset($c);
+
+        if ($totalFeatures === 0) {
+            // Hitung kolom non-identitas & non-measure
+            $validCols = array_filter($columns, function($c) {
+                $norm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)$c['nama_kolom_sumber']));
+                return !in_array($norm, ['no', 'nomor', 'id', 'norm', 'nik'], true) &&
+                    !in_array($c['pemetaan_atribut'] ?? '', ['identitas', 'jumlah', 'periode', 'jumlah_kunjungan'], true);
+            });
+            $totalFeatures = count($validCols);
+        }
+
+        // ── Jika dataset memiliki data_kunjungan, gunakan itu ──
+        // ── Jika tidak (dataset tidak dipetakan), baca langsung dari file ──
+        $hasKunjunganData = ($totalRows > 0);
+
+        // ── Rentang periode ──
+        $periodeLabel = 'Semua Periode';
+        if ($hasKunjunganData) {
+            $range = $db->table('data_kunjungan')
+                ->selectMin('periode', 'min_date')
+                ->selectMax('periode', 'max_date')
+                ->where('id_dataset', $datasetId)
+                ->where('periode IS NOT NULL')
+                ->where("periode != '0000-00-00'")
+                ->get()->getRowArray();
+            $indoMonthsShort = [
+                '01' => 'Jan', '02' => 'Feb', '03' => 'Mar', '04' => 'Apr',
+                '05' => 'Mei', '06' => 'Jun', '07' => 'Jul', '08' => 'Agu',
+                '09' => 'Sep', '10' => 'Okt', '11' => 'Nov', '12' => 'Des'
+            ];
+            if (!empty($range['min_date']) && !empty($range['max_date'])) {
+                $y1 = substr($range['min_date'], 0, 4);
+                $m1 = $indoMonthsShort[substr($range['min_date'], 5, 2)] ?? substr($range['min_date'], 5, 2);
+                $y2 = substr($range['max_date'], 0, 4);
+                $m2 = $indoMonthsShort[substr($range['max_date'], 5, 2)] ?? substr($range['max_date'], 5, 2);
+                $periodeLabel = ($y1 === $y2 && $m1 === $m2) ? "$m1 $y1" : "$m1 $y1 – $m2 $y2";
+            }
+        }
+        if (!empty($dataset['periode_awal']) && !empty($dataset['periode_akhir'])) {
+            $p1 = date('M Y', strtotime($dataset['periode_awal']));
+            $p2 = date('M Y', strtotime($dataset['periode_akhir']));
+            $periodeLabel = ($p1 === $p2) ? $p1 : "$p1 – $p2";
+        }
+
+        // ── Distribusi Jenis Kelamin (Agregasi SUM jumlah_kunjungan) ──
+        $genderDist = [];
+        if ($hasKunjunganData) {
+            $genderDist = $db->table('data_kunjungan')
+                ->select("jenis_kelamin, SUM(CASE WHEN jumlah_kunjungan > 0 THEN jumlah_kunjungan WHEN jumlah > 0 THEN jumlah ELSE 1 END) as total")
+                ->where('id_dataset', $datasetId)
+                ->whereIn('jenis_kelamin', ['L', 'P'])
+                ->groupBy('jenis_kelamin')
+                ->orderBy('total', 'DESC')
+                ->get()->getResultArray();
+        }
+
+        // ── Distribusi Kelompok Usia (Nilai APA ADANYA, Agregasi SUM jumlah_kunjungan, Urut Termuda) ──
+        $ageDist = [];
+        if ($hasKunjunganData) {
+            $rawAge = $db->table('data_kunjungan')
+                ->select("kelompok_usia, SUM(CASE WHEN jumlah_kunjungan > 0 THEN jumlah_kunjungan WHEN jumlah > 0 THEN jumlah ELSE 1 END) as total")
+                ->where('id_dataset', $datasetId)
+                ->where('kelompok_usia IS NOT NULL')
+                ->where("kelompok_usia != ''")
+                ->where("kelompok_usia != 'Umum'")
+                ->groupBy('kelompok_usia')
+                ->get()->getResultArray();
+
+            if (empty($rawAge)) {
+                $rawAge = $db->table('data_kunjungan')
+                    ->select("kelompok_usia, SUM(CASE WHEN jumlah_kunjungan > 0 THEN jumlah_kunjungan WHEN jumlah > 0 THEN jumlah ELSE 1 END) as total")
+                    ->where('id_dataset', $datasetId)
+                    ->where('kelompok_usia IS NOT NULL')
+                    ->where("kelompok_usia != ''")
+                    ->groupBy('kelompok_usia')
+                    ->get()->getResultArray();
+            }
+
+            // Urutkan dari yang termuda (Anak -> Remaja -> Dewasa -> Lansia)
+            $ageRank = function($label) {
+                $l = strtolower(trim((string)$label));
+                if (preg_match('/(balita|bayi|toddler|infant)/i', $l)) return 1;
+                if (preg_match('/(anak|child|kid|pediatri)/i', $l)) return 2;
+                if (preg_match('/(remaja|teen|adolescent)/i', $l)) return 3;
+                if (preg_match('/(dewasa|adult)/i', $l)) return 4;
+                if (preg_match('/(lansia|elderly|geriatri|tua)/i', $l)) return 5;
+                if (preg_match('/(\d+)/', $l, $m)) {
+                    return 10 + (int)$m[1];
+                }
+                return 99;
+            };
+
+            usort($rawAge, fn($a, $b) => $ageRank($a['kelompok_usia']) <=> $ageRank($b['kelompok_usia']));
+            $ageDist = array_values($rawAge);
+        }
+
+        // ── Top Kategori / Diagnosis ──
+        // Strategi universal: coba dari nama_diagnosis, lalu fallback ke sumber (target field), 
+        // lalu fallback ke unit_pelayanan sebagai kategori pengganti
+        $topDiagnosis = [];
+        if ($hasKunjunganData) {
+            // Cek apakah nama_diagnosis berisi data valid (bukan binary garbage)
+            $checkDiag = $db->table('data_kunjungan')
+                ->select('nama_diagnosis')
+                ->where('id_dataset', $datasetId)
+                ->where('nama_diagnosis IS NOT NULL')
+                ->where("nama_diagnosis != ''")
+                ->limit(5)
+                ->get()->getResultArray();
+
+            $diagIsValid = false;
+            foreach ($checkDiag as $row) {
+                $val = $row['nama_diagnosis'] ?? '';
+                // Cek apakah string bisa dibaca sebagai teks (bukan binary)
+                if (mb_detect_encoding($val, 'UTF-8', true) !== false
+                    && preg_match('/^[\x20-\x7E\xC0-\xFF\s]{2,}/u', $val)) {
+                    $diagIsValid = true;
+                    break;
+                }
+            }
+
+            if ($diagIsValid) {
+                $topDiagnosis = $db->table('data_kunjungan')
+                    ->select('COALESCE(nama_diagnosis, kode_diagnosis, "Lainnya") as label, SUM(jumlah_kunjungan) as total')
+                    ->where('id_dataset', $datasetId)
+                    ->where('nama_diagnosis IS NOT NULL')
+                    ->where("nama_diagnosis != ''")
+                    ->groupBy('COALESCE(nama_diagnosis, kode_diagnosis, "Lainnya")')
+                    ->orderBy('total', 'DESC')
+                    ->limit(10)
+                    ->get()->getResultArray();
+                // Filter: buang label yang tampak seperti binary
+                $topDiagnosis = array_filter($topDiagnosis, function($r) {
+                    $l = $r['label'] ?? '';
+                    return strlen($l) > 0
+                        && mb_detect_encoding($l, 'UTF-8', true) !== false
+                        && preg_match('/[\x20-\x7E\xC0-\xFF]/u', $l)
+                        && !preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $l);
+                });
+                $topDiagnosis = array_values($topDiagnosis);
+            }
+
+            // Fallback: gunakan unit_pelayanan sebagai top kategori
+            if (empty($topDiagnosis)) {
+                $topDiagnosis = $db->table('data_kunjungan')
+                    ->select('unit_pelayanan as label, SUM(jumlah_kunjungan) as total')
+                    ->where('id_dataset', $datasetId)
+                    ->where('unit_pelayanan IS NOT NULL')
+                    ->where("unit_pelayanan != ''")
+                    ->groupBy('unit_pelayanan')
+                    ->orderBy('total', 'DESC')
+                    ->limit(10)
+                    ->get()->getResultArray();
+            }
+
+            // Fallback ke nama_dataset jika masih kosong
+            if (empty($topDiagnosis)) {
+                $topDiagnosis = [[
+                    'label' => $dataset['nama_dataset'],
+                    'total' => $totalRows,
+                ]];
+            }
+        }
+
+        // ── Top Unit Pelayanan ──
+        $topUnit = [];
+        if ($hasKunjunganData) {
+            $rawUnit = $db->table('data_kunjungan')
+                ->select('unit_pelayanan, SUM(jumlah_kunjungan) as total')
+                ->where('id_dataset', $datasetId)
+                ->where('unit_pelayanan IS NOT NULL')
+                ->where("unit_pelayanan != ''")
+                ->where("unit_pelayanan != 'Umum'")
+                ->groupBy('unit_pelayanan')
+                ->orderBy('total', 'DESC')
+                ->limit(8)
+                ->get()->getResultArray();
+
+            // Jika semua unit adalah 'Umum', gunakan kategori alternatif
+            if (empty($rawUnit)) {
+                $rawUnit = $db->table('data_kunjungan')
+                    ->select('unit_pelayanan, SUM(jumlah_kunjungan) as total')
+                    ->where('id_dataset', $datasetId)
+                    ->where('unit_pelayanan IS NOT NULL')
+                    ->where("unit_pelayanan != ''")
+                    ->groupBy('unit_pelayanan')
+                    ->orderBy('total', 'DESC')
+                    ->limit(8)
+                    ->get()->getResultArray();
+            }
+            $topUnit = $rawUnit;
+        }
+
+        // ── Tren kunjungan per periode (monthly / daily / yearly) ──
+        $trendData = [];
+        if ($hasKunjunganData) {
+            $rawTrend = $db->table('data_kunjungan')
+                ->select("DATE_FORMAT(periode, '%Y-%m') as bulan, SUM(CASE WHEN jumlah_kunjungan > 0 THEN jumlah_kunjungan WHEN jumlah > 0 THEN jumlah ELSE 1 END) as total")
+                ->where('id_dataset', $datasetId)
+                ->where('periode IS NOT NULL')
+                ->where("periode != '0000-00-00'")
+                ->groupBy("DATE_FORMAT(periode, '%Y-%m')")
+                ->orderBy('bulan', 'ASC')
+                ->limit(60)
+                ->get()->getResultArray();
+
+            $uniqueMonths = array_unique(array_column($rawTrend, 'bulan'));
+            if (count($uniqueMonths) > 1) {
+                // Multibulan: tampilkan tren bulanan
+                $trendData = $rawTrend;
+            } elseif (count($uniqueMonths) === 1) {
+                // Jika hanya 1 bulan terdeteksi, cek apakah ada variasi harian
+                $dailyTrend = $db->table('data_kunjungan')
+                    ->select("DATE_FORMAT(periode, '%d %b') as bulan, SUM(CASE WHEN jumlah_kunjungan > 0 THEN jumlah_kunjungan WHEN jumlah > 0 THEN jumlah ELSE 1 END) as total")
+                    ->where('id_dataset', $datasetId)
+                    ->where('periode IS NOT NULL')
+                    ->where("periode != '0000-00-00'")
+                    ->groupBy("DATE_FORMAT(periode, '%Y-%m-%d')")
+                    ->orderBy('periode', 'ASC')
+                    ->limit(31)
+                    ->get()->getResultArray();
+
+                if (count($dailyTrend) > 1) {
+                    $trendData = $dailyTrend;
+                } elseif (!empty($rawTrend)) {
+                    $trendData = $rawTrend;
+                }
+            }
+        }
+
+        // ── Baca langsung dari file jika kolom tidak terdaftar atau data_kunjungan kosong ──
+        // Ini memungkinkan dashboard bisa menampilkan apapun jenis dataset yang diunggah
+        $rawFileData = [];
+        if ((!$hasKunjunganData || empty($topDiagnosis)) && !empty($dataset['nama_file_internal'])) {
+            $filePath = WRITEPATH . 'uploads/datasets/' . $dataset['nama_file_internal'];
+            if (file_exists($filePath)) {
+                try {
+                    $ss = new SpreadsheetService();
+                    $sample = $ss->readSample($filePath, 50);
+                    $headers = $sample['headers'] ?? [];
+                    $rows = $sample['sample_rows'] ?? [];
+                    $totalFileRows = $sample['total_rows'] ?? count($rows);
+
+                    $rawFileData = [
+                        'headers'     => $headers,
+                        'sample_rows' => array_slice($rows, 0, 15),
+                        'total_rows'  => $totalFileRows,
+                    ];
+
+                    if ($totalRows === 0) {
+                        $totalRows = $totalFileRows;
+                        $totalFeatures = count($headers);
+                    }
+
+                    // Buat columns jika belum terdaftar
+                    if (empty($columns) && !empty($headers)) {
+                        foreach ($headers as $pos => $h) {
+                            $columns[] = [
+                                'id' => $pos + 1,
+                                'id_dataset' => $datasetId,
+                                'nama_kolom_sumber' => $h,
+                                'nama_kolom' => $h,
+                                'nama_kolom_asli' => $h,
+                                'posisi_kolom' => $pos,
+                                'tipe_data' => $sample['detected_types'][$pos] ?? 'kategorik',
+                                'peran' => ($pos === 0 ? 'entitas' : 'indikator'),
+                                'is_fitur' => 1,
+                                'is_target' => 0,
+                            ];
+                        }
+                    }
+
+                    // Jika top_diagnosis masih kosong, ekstrak dari baris file
+                    if (empty($topDiagnosis) && !empty($rows) && !empty($headers)) {
+                        // Cari kolom numerik terlebih dahulu
+                        $numericCols = [];
+                        foreach ($headers as $cIdx => $h) {
+                            $numCount = 0;
+                            foreach ($rows as $r) {
+                                $v = str_replace(['.', ','], '', trim($r[$cIdx] ?? ''));
+                                if (is_numeric($v)) $numCount++;
+                            }
+                            if ($numCount > count($rows) * 0.3) {
+                                $numericCols[] = $cIdx;
+                            }
+                        }
+
+                        // Cari kolom label terbaik (kolom teks non-numerik, bukan no/id, dan bukan kolom numerik)
+                        $labelCol = 0;
+                        $maxTextScore = -1;
+                        foreach ($headers as $cIdx => $h) {
+                            if (in_array($cIdx, $numericCols, true)) continue;
+                            $hLower = strtolower($h);
+                            if (in_array($hLower, ['no', 'nomor', 'id', 'kode'], true)) continue;
+
+                            $textCount = 0;
+                            foreach ($rows as $r) {
+                                $val = trim($r[$cIdx] ?? '');
+                                $cleanVal = str_replace(['.', ','], '', $val);
+                                if (!empty($val) && !is_numeric($cleanVal) && strlen($val) > 1) {
+                                    $textCount++;
+                                }
+                            }
+                            if ($textCount > $maxTextScore) {
+                                $maxTextScore = $textCount;
+                                $labelCol = $cIdx;
+                            }
+                        }
+                        if ($maxTextScore <= 0) {
+                            foreach ($headers as $cIdx => $h) {
+                                if (!in_array($cIdx, $numericCols, true)) {
+                                    $labelCol = $cIdx;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!empty($numericCols)) {
+                            $calcCases = 0;
+                            $entityRank = [];
+                            foreach ($rows as $r) {
+                                $name = trim($r[$labelCol] ?? '');
+                                if (empty($name) || preg_match('/^(jumlah|total|indonesia)$/i', $name)) continue;
+                                $sum = 0;
+                                foreach ($numericCols as $c) {
+                                    $sum += (float)str_replace(['.', ','], '', trim($r[$c] ?? '0'));
+                                }
+                                $calcCases += $sum;
+                                $entityRank[] = [
+                                    'label' => $name,
+                                    'total' => (int)round($sum)
+                                ];
+                            }
+                            usort($entityRank, fn($a, $b) => $b['total'] <=> $a['total']);
+                            $topDiagnosis = array_slice($entityRank, 0, 10);
+                            if ($totalCases <= 0 && $calcCases > 0) {
+                                $totalCases = (int)round($calcCases);
+                            }
+
+                            // Buat breakdown indikator untuk unit pelayanan chart
+                            if (empty($topUnit)) {
+                                $indicatorBreakdown = [];
+                                foreach ($numericCols as $c) {
+                                    $colName = $headers[$c];
+                                    $cleanName = preg_replace('/^Jumlah Kasus Penyakit - /i', '', $colName);
+                                    $sum = 0;
+                                    foreach ($rows as $r) {
+                                        $sum += (float)str_replace(['.', ','], '', trim($r[$c] ?? '0'));
+                                    }
+                                    if ($sum > 0) {
+                                        $indicatorBreakdown[] = [
+                                            'unit_pelayanan' => $cleanName,
+                                            'total' => (int)round($sum)
+                                        ];
+                                    }
+                                }
+                                usort($indicatorBreakdown, fn($a, $b) => $b['total'] <=> $a['total']);
+                                $topUnit = array_slice($indicatorBreakdown, 0, 8);
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Abaikan error baca file
+                }
+            }
+        }
+
+        // ── Riwayat analisis untuk dataset ini ──
+        $analisisHistory = $db->table('analisis')
+            ->select('analisis.*, users.nama as nama_user')
+            ->join('users', 'users.id = analisis.id_user', 'left')
+            ->where('analisis.id_dataset', $datasetId)
+            ->orderBy('analisis.created_at', 'DESC')
+            ->limit(5)
+            ->get()->getResultArray();
+
+        // ── Ekstraksi Struktur Multi-Kategori (Khusus Dataset Analisis Kematian / Tabular Agregat) ──
+        $deathCategories = [];
+        $provinceRows = [];
+        $isDeathAnalysisDataset = false;
+
+        if (!empty($dataset['nama_file_internal'])) {
+            $filePath = WRITEPATH . 'uploads/datasets/' . $dataset['nama_file_internal'];
+            if (file_exists($filePath)) {
+                try {
+                    $ss = new SpreadsheetService();
+                    if ($ss->isXls($filePath)) {
+                        $pXls = $ss->parseXls($filePath, 0);
+                        if (!empty($pXls['headers']) && count($pXls['headers']) >= 6 && in_array('Provinsi', $pXls['headers'], true)) {
+                            $isDeathAnalysisDataset = true;
+                            $pHeaders = $pXls['headers']; // ['Provinsi', 'Penyakit Menular', 'Penyakit Tidak Menular', 'Kecelakaan Lalu Lintas', 'Kecelakaan Lainnya', 'Lainnya', 'Jumlah']
+                            $rawRows = $pXls['rows'];
+                            $pSummary = $pXls['summary_row'];
+
+                            $parseNum = function($v) {
+                                $v = trim((string)$v);
+                                if ($v === '' || $v === 'NA' || $v === '-' || $v === '–') return 0;
+                                return (float)str_replace(['.', ','], ['', '.'], $v);
+                            };
+
+                            // Hitung total kategori dari baris-baris provinsi aktual
+                            $catSums = [];
+                            foreach ($pHeaders as $ci => $ch) {
+                                if ($ci === 0 || $ci === count($pHeaders) - 1) continue; // skip Provinsi & Jumlah
+                                $catSums[$ch] = 0;
+                            }
+
+                            $totProvDeaths = 0;
+                            foreach ($rawRows as $r) {
+                                $pName = trim($r[0] ?? '');
+                                $rowTotal = $parseNum($r[count($pHeaders) - 1] ?? 0);
+                                $totProvDeaths += $rowTotal;
+
+                                $catVals = [];
+                                foreach ($pHeaders as $ci => $ch) {
+                                    if ($ci === 0 || $ci === count($pHeaders) - 1) continue;
+                                    $cVal = $parseNum($r[$ci] ?? 0);
+                                    $catSums[$ch] += $cVal;
+                                    $catVals[$ch] = $cVal;
+                                }
+
+                                $provinceRows[] = [
+                                    'provinsi'                  => $pName,
+                                    'penyakit_menular'          => $catVals['Penyakit Menular'] ?? 0,
+                                    'penyakit_tidak_menular'    => $catVals['Penyakit Tidak Menular'] ?? 0,
+                                    'kecelakaan_lalu_lintas'    => $catVals['Kecelakaan Lalu Lintas'] ?? 0,
+                                    'kecelakaan_lainnya'        => $catVals['Kecelakaan Lainnya'] ?? 0,
+                                    'lainnya'                   => $catVals['Lainnya'] ?? 0,
+                                    'jumlah'                    => $rowTotal,
+                                    'raw_values'                => $catVals,
+                                ];
+                            }
+
+                            // Urutkan kategori penyebab kematian dari nilai terbesar ke terkecil
+                            foreach ($catSums as $catName => $sumVal) {
+                                $deathCategories[] = [
+                                    'kategori' => $catName,
+                                    'total'    => (int)round($sumVal),
+                                ];
+                            }
+                            usort($deathCategories, fn($a, $b) => $b['total'] <=> $a['total']);
+
+                            // Top provinsi terdata
+                            usort($provinceRows, fn($a, $b) => $b['jumlah'] <=> $a['jumlah']);
+
+                            // Pastikan total kasus konsisten dengan total kematian
+                            if ($totProvDeaths > 0) {
+                                $totalCases = (int)round($totProvDeaths);
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Abaikan jika bukan format xls
+                }
+            }
+        }
+
+        return $this->response->setJSON([
+            'dataset'                   => $dataset,
+            'total_rows'                => $totalRows,
+            'total_cases'               => $totalCases,
+            'card_total_label'          => $cardTotalLabel,
+            'card_total_sub'            => $cardTotalSub,
+            'best_accuracy'             => $bestAccuracy,
+            'best_accuracy_desc'        => $bestAccuracyDesc,
+            'silhouette_score'          => $silhouetteScore,
+            'silhouette_desc'           => $silhouetteDesc,
+            'total_datasets_label'      => $totalDatasetsLabel,
+            'total_features'            => $totalFeatures,
+            'target_column'             => $targetColumnName,
+            'periode_label'             => $periodeLabel,
+            'columns'                   => $columns,
+            'gender_dist'               => $genderDist,
+            'age_dist'                  => $ageDist,
+            'top_diagnosis'             => array_values($topDiagnosis),
+            'top_unit'                  => $topUnit,
+            'trend'                     => $isDeathAnalysisDataset ? [] : (count($trendData) > 1 ? $trendData : []),
+            'analisis_history'          => $analisisHistory,
+            'raw_file_data'             => $rawFileData,
+            'has_mapping'               => !empty($columns),
+            'profiling_meta'            => $profilingMeta,
+            'is_death_analysis'         => $isDeathAnalysisDataset,
+            'death_categories'          => $deathCategories,
+            'province_rows'             => $provinceRows,
+            'summary_row'               => $pSummary ?? null,
+        ]);
+    }
+}

@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Background Gradients for Polara -->
+    <linearGradient id="polaraBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FAF1D6" />
+      <stop offset="50%" stop-color="#FCF6E5" />
+      <stop offset="100%" stop-color="#FAF1D6" />
+    </linearGradient>
+
+    <!-- Peach Ambient Glow -->
+    <radialGradient id="peachGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F9B097" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#F9B097" stop-opacity="0.0" />
+    </radialGradient>
+
+    <!-- Soft Blue Analytics Glow -->
+    <radialGradient id="softBlueGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#B9DDF4" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#B9DDF4" stop-opacity="0.0" />
+    </radialGradient>
+
+    <!-- Coral Red Subtle Wave Gradient -->
+    <linearGradient id="coralPulseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F04432" stop-opacity="0.0" />
+      <stop offset="35%" stop-color="#F9B097" stop-opacity="0.4" />
+      <stop offset="70%" stop-color="#F04432" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#B9DDF4" stop-opacity="0.0" />
+    </linearGradient>
+
+    <!-- Delicate Dot Pattern -->
+    <pattern id="polaraDots" width="36" height="36" patternUnits="userSpaceOnUse">
+      <circle cx="18" cy="18" r="1.2" fill="#102B46" fill-opacity="0.04" />
+    </pattern>
+  </defs>
+
+  <!-- Base Cream Background -->
+  <rect width="100%" height="100%" fill="url(#polaraBgGrad)" />
+
+  <!-- Subtle Dot Matrix -->
+  <rect width="100%" height="100%" fill="url(#polaraDots)" />
+
+  <!-- Organic Peach & Soft Blue Ambient Blooms -->
+  <circle cx="250" cy="220" r="480" fill="url(#peachGlow)" />
+  <circle cx="1680" cy="380" r="520" fill="url(#peachGlow)" />
+  <circle cx="1500" cy="850" r="460" fill="url(#softBlueGlow)" />
+  <circle cx="120" cy="880" r="380" fill="url(#softBlueGlow)" />
+
+  <!-- Flowing Wave Contours (Organic background decoration) -->
+  <path d="M -100,520 Q 300,420 700,560 T 1500,490 T 2050,600" fill="none" stroke="#F9B097" stroke-width="2" stroke-opacity="0.25" />
+  <path d="M -80,560 Q 320,470 720,600 T 1520,530 T 2070,640" fill="none" stroke="#B9DDF4" stroke-width="1.5" stroke-opacity="0.35" />
+
+  <!-- Abstract Health Data Node Network (Subtle constellation) -->
+  <g stroke="#102B46" stroke-width="1" stroke-opacity="0.08" fill="none">
+    <path d="M 1250,220 L 1380,160 L 1520,240 L 1680,180 L 1800,290" />
+    <path d="M 1380,160 L 1440,320 L 1590,360 L 1680,180" />
+    <path d="M 1250,220 L 1310,400 L 1440,320 L 1510,500 L 1700,460" />
+    <path d="M 1590,360 L 1700,460 L 1820,560" />
+    <path d="M 1310,400 L 1220,540 L 1380,600 L 1510,500" />
+  </g>
+
+  <!-- Node Dots with Soft Blue & Peach Accents -->
+  <g opacity="0.45">
+    <circle cx="1250" cy="220" r="4" fill="#F04432" />
+    <circle cx="1380" cy="160" r="6" fill="#F9B097" />
+    <circle cx="1520" cy="240" r="4" fill="#B9DDF4" />
+    <circle cx="1680" cy="180" r="5" fill="#F04432" />
+    <circle cx="1800" cy="290" r="4" fill="#B9DDF4" />
+    <circle cx="1440" cy="320" r="6" fill="#B9DDF4" />
+    <circle cx="1590" cy="360" r="5" fill="#F9B097" />
+    <circle cx="1310" cy="400" r="4" fill="#F04432" />
+    <circle cx="1510" cy="500" r="6" fill="#B9DDF4" />
+    <circle cx="1700" cy="460" r="5" fill="#F9B097" />
+    <circle cx="1820" cy="560" r="4" fill="#B9DDF4" />
+  </g>
+
+  <!-- Clinical Trend / Pulse Wave (ECG-like Data Curve) -->
+  <path d="M 1150,420 L 1280,420 L 1310,380 L 1335,460 L 1365,340 L 1395,445 L 1420,405 L 1445,420 L 1620,420"
+        fill="none" stroke="url(#coralPulseGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
