@@ -240,6 +240,8 @@ class Datasets extends BaseController
                 ->with('error', 'Tidak ada kolom yang terdeteksi pada dataset.');
         }
 
+        try {
+
         // Enforce: Hanya SATU kolom yang boleh berperan 'periode'.
         // Kolom tahun dan bulan tidak boleh ikut diberi peran periode.
         $hasAssignedPeriode = false;
@@ -266,9 +268,6 @@ class Datasets extends BaseController
             }
         }
 
-        $db = Database::connect('default');
-        $db->transStart();
-
         // 1. Bersihkan pemetaan kolom lama untuk dataset ini
         $this->columnModel->where('id_dataset', $id)->delete();
 
@@ -277,7 +276,7 @@ class Datasets extends BaseController
             $mappedAttr = $mappings[$colIdx] ?? null;
             $colNorm    = strtolower(preg_replace('/[^a-z0-9]/', '', (string)$colName));
             $isTarget   = ((string)$targetColumn === (string)$colIdx) ? 1 : 0;
-            
+
             // Kolom no, nomor, id, nik, jumlah, dan periode jangan pernah jadi atribut fitur
             if (in_array($colNorm, ['no', 'nomor', 'id', 'norm', 'nomorrm', 'nik'], true) ||
                 in_array($mappedAttr, ['identitas', 'jumlah', 'periode', 'jumlah_kunjungan'], true)) {
@@ -286,7 +285,7 @@ class Datasets extends BaseController
                 $isFitur = isset($isFeatures[$colIdx]) ? (int)$isFeatures[$colIdx] : 1;
             }
 
-            $this->columnModel->insert([
+            $insertOk = $this->columnModel->insert([
                 'id_dataset'          => (int) $id,
                 'nama_kolom_sumber'   => (string) $colName,
                 'posisi_kolom'        => (int) $colIdx,
@@ -296,6 +295,10 @@ class Datasets extends BaseController
                 'is_target'           => $isTarget,
                 'konfirmasi_pengguna' => 1,
             ]);
+            if ($insertOk === false) {
+                $dbErr = $this->columnModel->errors();
+                throw new \RuntimeException('Gagal menyimpan skema kolom: ' . json_encode($dbErr));
+            }
         }
 
         // Cari indeks kolom periode, kelompok_usia, wilayah/unit, dan nama entitas dari headers
@@ -321,6 +324,23 @@ class Datasets extends BaseController
 
         // 3. Impor data baris ke tabel data_kunjungan
         $filePath = WRITEPATH . 'uploads/datasets/' . $dataset['nama_file_internal'];
+
+        // Cek ketersediaan berkas fisik (bisa hilang di Vercel Lambda ephemeral /tmp)
+        if (!file_exists($filePath)) {
+            // Jika berkas tidak ada (ephemeral Lambda), tandai dataset sebagai siap tanpa impor ulang baris
+            $existingCount = $this->kunjunganModel->countByDataset((int)$id);
+            if ($existingCount > 0) {
+                // Data sudah ada dari upload sebelumnya, update status saja
+                $this->datasetModel->update($id, [
+                    'status'       => 'siap',
+                    'jumlah_baris' => $existingCount,
+                ]);
+                return redirect()->to(site_url('datasets'))
+                    ->with('import_success', "Konfirmasi kolom selesai. Sebanyak " . number_format($existingCount) . " baris data siap digunakan untuk analisis.");
+            }
+            throw new \RuntimeException('Berkas dataset tidak ditemukan di server. Silakan unggah ulang dataset.');
+        }
+
         $mappedRows = $this->spreadsheetService->parseAndMapAll($filePath, $mappings);
 
         // Hapus rekam data_kunjungan lama untuk dataset ini
@@ -497,14 +517,24 @@ class Datasets extends BaseController
             ];
 
             if (count($batchData) >= 500) {
-                $this->kunjunganModel->insertBatch($batchData);
+                $ok = $this->kunjunganModel->insertBatch($batchData);
+                if ($ok === false) {
+                    $db2 = Database::connect('default');
+                    $dbErr = $db2->error();
+                    throw new \RuntimeException('Gagal menyimpan batch data: ' . ($dbErr['message'] ?? 'unknown error'));
+                }
                 $totalImported += count($batchData);
                 $batchData = [];
             }
         }
 
         if (!empty($batchData)) {
-            $this->kunjunganModel->insertBatch($batchData);
+            $ok = $this->kunjunganModel->insertBatch($batchData);
+            if ($ok === false) {
+                $db2 = Database::connect('default');
+                $dbErr = $db2->error();
+                throw new \RuntimeException('Gagal menyimpan batch data akhir: ' . ($dbErr['message'] ?? 'unknown error'));
+            }
             $totalImported += count($batchData);
         }
 
@@ -532,17 +562,21 @@ class Datasets extends BaseController
         }
         $this->datasetModel->update($id, $datasetUpdate);
 
-        $db->transComplete();
-
-        if ($db->transStatus() === false) {
-            $dbError = $db->error();
-            $msg = !empty($dbError['message']) ? $dbError['message'] : 'Gagal mengeksekusi transaksi basis data.';
-            return redirect()->back()
-                ->with('error', 'Terjadi kesalahan sistem saat menyimpan pemetaan dan data: ' . $msg);
-        }
-
         return redirect()->to(site_url('datasets'))
             ->with('import_success', "Konfirmasi kolom selesai. Sebanyak " . number_format($totalImported) . " baris data siap digunakan untuk analisis.");
+
+        } catch (\Throwable $e) {
+            // Rollback kolom yang mungkin sudah ter-insert jika gagal di tengah
+            try { $this->columnModel->where('id_dataset', $id)->delete(); } catch (\Throwable $ignored) {}
+
+            $errMsg = $e->getMessage();
+            // Potong pesan panjang agar tidak overflow session
+            if (strlen($errMsg) > 500) {
+                $errMsg = substr($errMsg, 0, 500) . '...';
+            }
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan sistem saat menyimpan pemetaan dan data: ' . $errMsg);
+        }
     }
 
 
