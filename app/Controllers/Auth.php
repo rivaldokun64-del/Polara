@@ -103,27 +103,6 @@ class Auth extends BaseController
         session()->destroy();
         return redirect()->to(site_url('login'))->with('success', 'Anda telah berhasil keluar dari sistem.');
     }
-
-    /**
-     * Helper sementara untuk reset password admin ke admin123
-     */
-    public function setupAdmin()
-    {
-        $passwordPlain = 'admin123';
-        $hashed = password_hash($passwordPlain, PASSWORD_BCRYPT);
-
-        $db = \Config\Database::connect();
-        $db->table('users')->where('username', 'admin')->update(['password' => $hashed, 'status' => 'aktif']);
-        $db->table('users')->where('username', 'rival')->update(['password' => $hashed, 'status' => 'aktif']);
-
-        return $this->response->setBody("
-            <div style='font-family:sans-serif;padding:30px;background:#ecfdf5;border:2px solid #10b981;border-radius:12px;margin:40px auto;max-width:600px;text-align:center;'>
-                <h2 style='color:#065f46;'>Reset Akun Berhasil!</h2>
-                <p>Akun <strong>admin</strong> dan <strong>rival</strong> sekarang memiliki password:</p>
-                <div style='background:#fff;padding:12px 20px;font-size:22px;font-weight:bold;color:#047857;border-radius:8px;display:inline-block;margin:15px 0;letter-spacing:1px;'>admin123</div>
-                <p><a href='" . site_url('login') . "' style='display:inline-block;padding:10px 24px;background:#10b981;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;'>Buka Form Login</a></p>
-            </div>
-        ");
-    }
 }
+
 
