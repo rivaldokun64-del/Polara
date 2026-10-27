@@ -200,5 +200,12 @@ class Database extends Config
         if (ENVIRONMENT === 'testing') {
             $this->defaultGroup = 'tests';
         }
+
+        // Aktifkan enkripsi SSL/TLS jika di Vercel atau jika host bukan localhost (wajib untuk TiDB Cloud)
+        $isVercel = getenv('VERCEL') || getenv('VERCEL_URL') || !empty($_SERVER['VERCEL']) || (!empty($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'vercel.app') !== false);
+        $dbHost = getenv('DB_HOSTNAME') ?: ($this->default['hostname'] ?? '');
+        if ($isVercel || (!empty($dbHost) && $dbHost !== 'localhost' && $dbHost !== '127.0.0.1')) {
+            $this->default['encrypt'] = true;
+        }
     }
 }
