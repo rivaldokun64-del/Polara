@@ -46,5 +46,29 @@ putenv("app.indexPage=");
 
 
 
-require __DIR__ . '/../public/index.php';
+// Set temporary writable paths before boot
+$tmpWritable = '/tmp/writable';
+if (!is_dir($tmpWritable)) {
+    @mkdir($tmpWritable . '/cache', 0777, true);
+    @mkdir($tmpWritable . '/logs', 0777, true);
+    @mkdir($tmpWritable . '/session', 0777, true);
+    @mkdir($tmpWritable . '/uploads', 0777, true);
+}
+$_ENV['paths.writableDirectory'] = $tmpWritable;
+$_SERVER['paths.writableDirectory'] = $tmpWritable;
+
+try {
+    require __DIR__ . '/../public/index.php';
+} catch (\Throwable $e) {
+    http_response_code(500);
+    header('Content-Type: text/html; charset=utf-8');
+    echo "<div style='font-family:sans-serif;padding:30px;background:#fff1f2;border:2px solid #e11d48;border-radius:12px;margin:30px auto;max-width:800px;color:#881337;'>";
+    echo "<h2 style='margin-top:0;color:#9f1239;'>Detail Error Sistem:</h2>";
+    echo "<p><strong>Pesan:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<p><strong>File:</strong> " . htmlspecialchars($e->getFile()) . " (Baris: " . $e->getLine() . ")</p>";
+    echo "<pre style='background:#ffe4e6;padding:12px;border-radius:6px;overflow:auto;font-size:12px;'>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    echo "</div>";
+    exit;
+}
+
 
