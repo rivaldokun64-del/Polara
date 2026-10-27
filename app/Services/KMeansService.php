@@ -27,11 +27,30 @@ class KMeansService
         $vectors = [];
         $featureStats = [];
 
+        // Helper untuk ekstrak nilai numerik dari row (baik dari kolom database maupun raw_data JSON)
+        $extractNumeric = function($row, $featureKey) {
+            // 1. Cek jika key ada di baris database langsung
+            if (isset($row[$featureKey]) && is_numeric($row[$featureKey])) {
+                return (float)$row[$featureKey];
+            }
+            // 2. Cek jika ada di raw_data JSON
+            if (!empty($row['raw_data'])) {
+                $raw = is_array($row['raw_data']) ? $row['raw_data'] : json_decode($row['raw_data'], true);
+                if (is_array($raw)) {
+                    if (isset($raw[$featureKey])) {
+                        $v = trim((string)$raw[$featureKey]);
+                        $v = str_replace(['.', ','], ['', '.'], $v);
+                        if (is_numeric($v)) return (float)$v;
+                    }
+                }
+            }
+            return 0.0;
+        };
+
         foreach ($features as $f) {
             $vals = [];
             foreach ($data as $row) {
-                $v = isset($row[$f]) && is_numeric($row[$f]) ? (float)$row[$f] : 0.0;
-                $vals[] = $v;
+                $vals[] = $extractNumeric($row, $f);
             }
             $min = !empty($vals) ? min($vals) : 0.0;
             $max = !empty($vals) ? max($vals) : 1.0;
@@ -44,7 +63,7 @@ class KMeansService
         foreach ($data as $i => $row) {
             $vec = [];
             foreach ($features as $f) {
-                $val = isset($row[$f]) && is_numeric($row[$f]) ? (float)$row[$f] : 0.0;
+                $val = $extractNumeric($row, $f);
                 // Normalisasi ke rentang [0, 1]
                 $norm = ($val - $featureStats[$f]['min']) / ($featureStats[$f]['max'] - $featureStats[$f]['min']);
                 $vec[] = $norm;
@@ -158,7 +177,7 @@ class KMeansService
 
             $topDiag = !empty($diagnoses) ? array_search(max(array_count_values($diagnoses)), array_count_values($diagnoses)) : '-';
             $topUnit = !empty($units) ? array_search(max(array_count_values($units)), array_count_values($units)) : '-';
-            $avgAge  = !empty($ages) ? round(array_sum($ages) / count($ages), 1) : 0;
+            $avgAge  = !empty($ages) ? round(array_sum($ages) / count($ages), 1) : null;
 
             $clusterProfiles[$c] = [
                 'cluster_index' => $c + 1,
@@ -166,6 +185,7 @@ class KMeansService
                 'member_count'  => $memberCount,
                 'percentage'    => $totalPoints > 0 ? round(($memberCount / $totalPoints) * 100, 1) : 0,
                 'centroid'      => $denormCentroids[$c],
+                'features'      => $features,
                 'avg_age'       => $avgAge,
                 'top_diagnosis' => $topDiag,
                 'top_unit'      => $topUnit,

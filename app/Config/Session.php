@@ -39,38 +39,25 @@ class Session extends BaseConfig
      * --------------------------------------------------------------------------
      *
      * The number of SECONDS you want the session to last.
-     * Setting to 0 (zero) means expire when the browser is closed.
-     */
-    public int $expiration = 7200;
-
-    /**
-     * --------------------------------------------------------------------------
-     * Session Save Path
-     * --------------------------------------------------------------------------
-     *
-     * The location to save sessions to and is driver dependent.
-     *
-     * For the 'files' driver, it's a path to a writable directory.
-     * WARNING: Only absolute paths are supported!
-     *
-     * For the 'database' driver, it's a table name.
-     * Please read up the manual for the format with other session drivers.
-     *
-     * IMPORTANT: You are REQUIRED to set a valid save path!
-     */
-    public string $savePath = WRITEPATH . 'session';
+    public int $expiration = 7200; // 2 jam (7200 detik)
+    public string $savePath = 'ci_sessions';
 
     public function __construct()
     {
         parent::__construct();
 
-        // Di Vercel (AWS Lambda serverless), hanya folder /tmp yang bisa ditulis (writable)
-        if (getenv('VERCEL') || getenv('VERCEL_URL') || !empty($_SERVER['VERCEL']) || (!empty($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'vercel.app') !== false)) {
-            $tmpSession = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ci_sessions';
-            if (!is_dir($tmpSession)) {
-                @mkdir($tmpSession, 0777, true);
-            }
-            $this->savePath = $tmpSession;
+        // Di Vercel (serverless lambda), FileHandler di /tmp akan hilang tiap kali instance berganti container
+        // Oleh karena itu, di Vercel kita WAJIB menggunakan DatabaseHandler (disimpan ke database TiDB/MySQL)
+        $isVercel = getenv('VERCEL') || getenv('VERCEL_URL') || !empty($_SERVER['VERCEL']) || (!empty($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'vercel.app') !== false);
+        
+        if ($isVercel) {
+            $this->driver   = \CodeIgniter\Session\Handlers\DatabaseHandler::class;
+            $this->savePath = 'ci_sessions';
+            $this->matchIP  = false;
+        } else {
+            // Di localhost, gunakan FileHandler atau DatabaseHandler
+            $this->driver   = \CodeIgniter\Session\Handlers\FileHandler::class;
+            $this->savePath = WRITEPATH . 'session';
         }
     }
 

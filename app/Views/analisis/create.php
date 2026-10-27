@@ -173,32 +173,61 @@
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Atribut Fitur Klasterisasi:</label>
-                                <div style="background:var(--warm-white);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:8px;">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features[]" value="usia" id="feat_usia" checked>
-                                        <label class="form-check-label small" for="feat_usia"><strong>Usia Pasien</strong> (Numerik)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features[]" value="jumlah_kunjungan" id="feat_kunjungan" checked>
-                                        <label class="form-check-label small" for="feat_kunjungan"><strong>Jumlah Kunjungan</strong> (Numerik)</label>
-                                    </div>
+                                <label class="form-label d-flex align-items-center justify-content-between">
+                                    <span>Atribut Fitur Klasterisasi:</span>
+                                    <span class="badge bg-light text-muted border small" id="kmeans_attr_badge">Memuat...</span>
+                                </label>
+                                <div id="kmeans_features_container" style="background:var(--warm-white);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;">
+                                    <?php if (!empty($columns)): ?>
+                                        <?php 
+                                            $hasNum = false;
+                                            foreach ($columns as $c): 
+                                                $isNum = in_array(strtolower($c['tipe_terdeteksi'] ?? ''), ['integer', 'numeric', 'float', 'double', 'int', 'number'], true);
+                                                if ($isNum) $hasNum = true;
+                                        ?>
+                                            <div class="form-check">
+                                                <input class="form-check-input kmeans-feat-cb" type="checkbox" name="features[]" value="<?= esc($c['nama_kolom_sumber']) ?>" id="feat_km_<?= esc($c['id']) ?>" <?= $isNum ? 'checked' : '' ?>>
+                                                <label class="form-check-label small" for="feat_km_<?= esc($c['id']) ?>">
+                                                    <strong><?= esc($c['nama_kolom_sumber']) ?></strong> 
+                                                    <span class="text-muted">(<?= esc(ucfirst($c['tipe_terdeteksi'] ?? 'Teks')) ?>)</span>
+                                                </label>
+                                            </div>
+                                        <?php endforeach; ?>
+                                        <?php if (!$hasNum): ?>
+                                            <div class="form-check">
+                                                <input class="form-check-input kmeans-feat-cb" type="checkbox" name="features[]" value="jumlah_kunjungan" id="feat_km_fallback" checked>
+                                                <label class="form-check-label small" for="feat_km_fallback">
+                                                    <strong>Jumlah Kunjungan / Kasus</strong> (Numerik)
+                                                </label>
+                                            </div>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <div class="text-muted small">Pilih dataset untuk memuat fitur.</div>
+                                    <?php endif; ?>
                                 </div>
+                                <div class="form-text small">Pilih minimal 1 kolom berbobot angka/agregat untuk dihitung jarak klasterisasinya.</div>
                             </div>
                         </div>
 
                         <!-- C4.5 & Naive Bayes Parameters -->
                         <div id="supervised_params" class="algo-section" style="display: none;">
                             <div class="mb-3">
-                                <label for="target_attr" class="form-label">Atribut Target (Kelas Klasifikasi):</label>
+                                <label for="target_attr" class="form-label d-flex align-items-center justify-content-between">
+                                    <span>Atribut Target (Kelas Klasifikasi):</span>
+                                    <span class="badge bg-light text-muted border small" id="target_attr_badge">Target Prediksi</span>
+                                </label>
                                 <select name="target" id="target_attr" class="form-select">
-                                    <option value="unit_pelayanan" selected>Unit Pelayanan (Poli Umum, KIA/KB, Gigi, IGD, dll)</option>
-                                    <option value="kelompok_usia">Kelompok Usia (Anak, Dewasa, Lansia)</option>
-                                    <option value="jenis_kelamin">Jenis Kelamin (L, P)</option>
-                                    <option value="sumber">Target Asal / Klasifikasi Sumber</option>
-                                    <option value="kode_diagnosis">Kode Diagnosis ICD-10</option>
+                                    <?php if (!empty($columns)): ?>
+                                        <?php foreach ($columns as $c): ?>
+                                            <option value="<?= esc($c['nama_kolom_sumber']) ?>" <?= !empty($c['is_target']) ? 'selected' : '' ?>>
+                                                <?= esc($c['nama_kolom_sumber']) ?> (<?= esc(ucfirst($c['tipe_terdeteksi'] ?? 'Kategori')) ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <option value="unit_pelayanan">Unit Pelayanan</option>
+                                    <?php endif; ?>
                                 </select>
-                                <div class="form-text small">Atribut ini akan diprediksi oleh pohon keputusan atau model Naive Bayes.</div>
+                                <div class="form-text small">Atribut ini adalah label yang akan diprediksi oleh pohon keputusan C4.5 atau Naive Bayes.</div>
                             </div>
 
                             <div id="c45_depth_box" class="mb-3">
@@ -208,29 +237,26 @@
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Atribut Fitur Prediktor:</label>
-                                <div style="background:var(--warm-white);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:8px;">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features[]" value="kelompok_usia" id="feat_pred_kelompok_usia" checked>
-                                        <label class="form-check-label small" for="feat_pred_kelompok_usia">Kelompok Usia (Kategorikal)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features[]" value="jenis_kelamin" id="feat_pred_jk" checked>
-                                        <label class="form-check-label small" for="feat_pred_jk">Jenis Kelamin (Kategorikal)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features[]" value="unit_pelayanan" id="feat_pred_unit">
-                                        <label class="form-check-label small" for="feat_pred_unit">Unit Pelayanan (Kategorikal)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features[]" value="usia" id="feat_pred_usia" checked>
-                                        <label class="form-check-label small" for="feat_pred_usia">Usia Pasien (Numerik)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features[]" value="jumlah_kunjungan" id="feat_pred_kunjungan">
-                                        <label class="form-check-label small" for="feat_pred_kunjungan">Jumlah Kunjungan (Numerik)</label>
-                                    </div>
+                                <label class="form-label d-flex align-items-center justify-content-between">
+                                    <span>Atribut Fitur Prediktor:</span>
+                                    <span class="badge bg-light text-muted border small" id="pred_attr_badge">Atribut Input</span>
+                                </label>
+                                <div id="supervised_features_container" style="background:var(--warm-white);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;">
+                                    <?php if (!empty($columns)): ?>
+                                        <?php foreach ($columns as $c): ?>
+                                            <div class="form-check">
+                                                <input class="form-check-input supervised-feat-cb" type="checkbox" name="features[]" value="<?= esc($c['nama_kolom_sumber']) ?>" id="feat_sup_<?= esc($c['id']) ?>" <?= empty($c['is_target']) ? 'checked' : '' ?>>
+                                                <label class="form-check-label small" for="feat_sup_<?= esc($c['id']) ?>">
+                                                    <strong><?= esc($c['nama_kolom_sumber']) ?></strong>
+                                                    <span class="text-muted">(<?= esc(ucfirst($c['tipe_terdeteksi'] ?? 'Teks')) ?>)</span>
+                                                </label>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div class="text-muted small">Pilih dataset untuk memuat atribut prediktor.</div>
+                                    <?php endif; ?>
                                 </div>
+                                <div class="form-text small">Fitur-fitur input yang digunakan model untuk memprediksi kelas target.</div>
                             </div>
                         </div>
 
@@ -281,11 +307,85 @@
 
         updateFormState();
 
-        // Dynamic update dataset summary card
+        // Dynamic update dataset summary card and columns
         const selectDataset = document.getElementById('id_dataset');
         const summaryName = document.getElementById('summaryDsName');
         const summaryFormat = document.getElementById('summaryDsFormat');
         const summaryRows = document.getElementById('summaryDsRows');
+        const kmContainer = document.getElementById('kmeans_features_container');
+        const supContainer = document.getElementById('supervised_features_container');
+        const targetSelect = document.getElementById('target_attr');
+        const kmBadge = document.getElementById('kmeans_attr_badge');
+
+        function loadDatasetColumns(datasetId) {
+            if (!datasetId) return;
+            if (kmBadge) kmBadge.textContent = 'Memuat atribut...';
+
+            fetch('<?= site_url('analisis/dataset-columns') ?>/' + datasetId)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success' && Array.isArray(data.columns)) {
+                        const cols = data.columns;
+                        
+                        // 1. Render K-Means features
+                        if (kmContainer) {
+                            kmContainer.innerHTML = '';
+                            let numericCount = 0;
+                            cols.forEach(c => {
+                                const isNum = c.is_numeric;
+                                if (isNum) numericCount++;
+                                const div = document.createElement('div');
+                                div.className = 'form-check';
+                                div.innerHTML = `
+                                    <input class="form-check-input kmeans-feat-cb" type="checkbox" name="features[]" value="${c.name}" id="feat_km_${c.id}" ${isNum ? 'checked' : ''}>
+                                    <label class="form-check-label small" for="feat_km_${c.id}">
+                                        <strong>${c.name}</strong> 
+                                        <span class="text-muted">(${c.tipe})</span>
+                                    </label>
+                                `;
+                                kmContainer.appendChild(div);
+                            });
+
+                            if (kmBadge) {
+                                kmBadge.textContent = numericCount + ' Kolom Numerik Terpilih';
+                            }
+                        }
+
+                        // 2. Render Target Select
+                        if (targetSelect) {
+                            targetSelect.innerHTML = '';
+                            cols.forEach(c => {
+                                const opt = document.createElement('option');
+                                opt.value = c.name;
+                                opt.textContent = `${c.name} (${c.tipe})`;
+                                if (c.is_target) opt.selected = true;
+                                targetSelect.appendChild(opt);
+                            });
+                        }
+
+                        // 3. Render Supervised Predictor features
+                        if (supContainer) {
+                            supContainer.innerHTML = '';
+                            cols.forEach(c => {
+                                const div = document.createElement('div');
+                                div.className = 'form-check';
+                                div.innerHTML = `
+                                    <input class="form-check-input supervised-feat-cb" type="checkbox" name="features[]" value="${c.name}" id="feat_sup_${c.id}" ${!c.is_target ? 'checked' : ''}>
+                                    <label class="form-check-label small" for="feat_sup_${c.id}">
+                                        <strong>${c.name}</strong>
+                                        <span class="text-muted">(${c.tipe})</span>
+                                    </label>
+                                `;
+                                supContainer.appendChild(div);
+                            });
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error('Gagal memuat kolom dataset:', err);
+                    if (kmBadge) kmBadge.textContent = 'Gagal memuat';
+                });
+        }
 
         if (selectDataset) {
             selectDataset.addEventListener('change', function() {
@@ -295,7 +395,13 @@
                     summaryFormat.textContent = opt.getAttribute('data-format') || 'CSV';
                     summaryRows.innerHTML = '<i class="bi bi-check2 me-0.5"></i> ' + (opt.getAttribute('data-rows') || '0') + ' baris';
                 }
+                loadDatasetColumns(this.value);
             });
+
+            // Trigger awal untuk dataset yang terpilih
+            if (selectDataset.value) {
+                loadDatasetColumns(selectDataset.value);
+            }
         }
 
         // Highlight active radio card
@@ -303,10 +409,10 @@
             document.querySelectorAll('.algo-card').forEach(card => {
                 const r = card.querySelector('input[type="radio"]');
                 if (r && r.checked) {
-                    card.style.borderColor = 'var(--color-coral)';
-                    card.style.backgroundColor = 'var(--color-peach-light)';
+                    card.style.borderColor = 'var(--coral)';
+                    card.style.backgroundColor = 'var(--coral-06)';
                 } else {
-                    card.style.borderColor = 'var(--color-border)';
+                    card.style.borderColor = 'var(--border)';
                     card.style.backgroundColor = '#ffffff';
                 }
             });

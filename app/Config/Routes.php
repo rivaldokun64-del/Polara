@@ -29,6 +29,7 @@ $routes->group('', ['filter' => 'auth'], static function ($routes) {
     // Modul Analisis Data Mining
     $routes->get('analisis', 'Analisis::index', ['as' => 'analisis']);
     $routes->get('analisis/baru', 'Analisis::create', ['filter' => 'role:admin,analis', 'as' => 'analisis.create']);
+    $routes->get('analisis/dataset-columns/(:num)', 'Analisis::datasetColumns/$1', ['filter' => 'role:admin,analis', 'as' => 'analisis.dataset_columns']);
     $routes->post('analisis/run', 'Analisis::run', ['filter' => 'role:admin,analis', 'as' => 'analisis.run']);
     $routes->get('analisis/detail/(:num)', 'Analisis::detail/$1', ['as' => 'analisis.detail']);
     $routes->get('analisis/delete/(:num)', 'Analisis::delete/$1', ['filter' => 'role:admin,analis', 'as' => 'analisis.delete']);

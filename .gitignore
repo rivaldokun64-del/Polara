@@ -27,6 +27,6 @@
 # File temporary
 *.sql
 *.sql.gz
-*.bak
-Thumbs.db
-.DS_Store
+
+# Credentials & local agent config
+.agents/tidb_config.json

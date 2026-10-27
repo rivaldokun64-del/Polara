@@ -97,6 +97,61 @@ class Analisis extends BaseController
     }
 
     /**
+     * Endpoint API untuk mengambil daftar kolom dan fitur dinamis dari dataset
+     */
+    public function datasetColumns($idDataset)
+    {
+        $dataset = $this->datasetModel->find($idDataset);
+        if (!$dataset) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Dataset tidak ditemukan'])->setStatusCode(404);
+        }
+
+        $columns = $this->columnModel->where('id_dataset', $idDataset)->orderBy('posisi_kolom', 'ASC')->findAll();
+        
+        // Ambil 1 sampel baris dari data_kunjungan untuk deteksi nilai aktual
+        $sampleRow = $this->kunjunganModel->where('id_dataset', $idDataset)->first();
+        $sampleRaw = [];
+        if (!empty($sampleRow['raw_data'])) {
+            $sampleRaw = json_decode($sampleRow['raw_data'], true) ?: [];
+        }
+
+        $resultCols = [];
+        foreach ($columns as $c) {
+            $colName = $c['nama_kolom_sumber'];
+            $pos = $c['posisi_kolom'];
+            $type = strtolower($c['tipe_terdeteksi'] ?? 'string');
+            $mapping = $c['pemetaan_atribut'] ?? '';
+            $isNumeric = in_array($type, ['integer', 'numeric', 'float', 'double', 'int', 'number'], true);
+            
+            // Cek nilai sampel jika tipe terdeteksi string tapi ternyata angka
+            if (!$isNumeric && isset($sampleRaw[$pos])) {
+                $val = trim((string)$sampleRaw[$pos]);
+                $valClean = str_replace(['.', ','], ['', '.'], $val);
+                if (is_numeric($valClean)) {
+                    $isNumeric = true;
+                }
+            }
+
+            $resultCols[] = [
+                'id'         => $c['id'],
+                'name'       => $colName,
+                'posisi'     => $pos,
+                'tipe'       => $type,
+                'is_numeric' => $isNumeric,
+                'is_fitur'   => (int)$c['is_fitur'],
+                'is_target'  => (int)$c['is_target'],
+                'mapping'    => $mapping,
+            ];
+        }
+
+        return $this->response->setJSON([
+            'status'     => 'success',
+            'dataset_id' => $idDataset,
+            'columns'    => $resultCols,
+        ]);
+    }
+
+    /**
      * Proses eksekusi algoritma data mining
      */
     public function run()
@@ -116,9 +171,41 @@ class Analisis extends BaseController
         }
 
         // Ambil data kunjungan dari database
-        $rows = $this->kunjunganModel->where('id_dataset', $idDataset)->findAll();
-        if (empty($rows)) {
+        $dbRows = $this->kunjunganModel->where('id_dataset', $idDataset)->findAll();
+        if (empty($dbRows)) {
             return redirect()->back()->withInput()->with('error', 'Tidak ada baris data kunjungan pada dataset terpilih.');
+        }
+
+        // Ambil daftar kolom dataset untuk pemetaan nama kolom asli dari raw_data
+        $datasetCols = $this->columnModel->where('id_dataset', $idDataset)->orderBy('posisi_kolom', 'ASC')->findAll();
+        $colIndexToName = [];
+        foreach ($datasetCols as $dc) {
+            $colIndexToName[$dc['posisi_kolom']] = $dc['nama_kolom_sumber'];
+        }
+
+        // Siapkan rows yang diperkaya atribut dinamis dari raw_data
+        $rows = [];
+        foreach ($dbRows as $r) {
+            $enriched = $r;
+            if (!empty($r['raw_data'])) {
+                $raw = is_array($r['raw_data']) ? $r['raw_data'] : json_decode($r['raw_data'], true);
+                if (is_array($raw)) {
+                    foreach ($raw as $k => $val) {
+                        $colName = $colIndexToName[$k] ?? (is_string($k) ? $k : null);
+                        if ($colName) {
+                            $cleanVal = trim((string)$val);
+                            // Simpan dengan key nama kolom asli
+                            $enriched[$colName] = $cleanVal;
+                            // Cek jika bernilai numerik dengan format ribuan Indo
+                            $numTest = str_replace(['.', ','], ['', '.'], $cleanVal);
+                            if (is_numeric($numTest)) {
+                                $enriched[$colName . '_num'] = (float)$numTest;
+                            }
+                        }
+                    }
+                }
+            }
+            $rows[] = $enriched;
         }
 
         $db = Database::connect('default');

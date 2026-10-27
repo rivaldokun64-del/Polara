@@ -98,15 +98,26 @@
                     <h2 class="card-title">Karakteristik &amp; Centroid Klaster</h2>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
+                        <?php 
+                            // Tentukan fitur numerik yang dihitung centroidnya
+                            $activeFeatures = $params['features'] ?? (isset($profiles[0]['centroid']) ? array_keys($profiles[0]['centroid']) : []);
+                            // Filter keluar metadata non-fitur jika ada
+                            $activeFeatures = array_values(array_filter($activeFeatures, fn($f) => !in_array($f, ['id', 'id_dataset', 'created_at'])));
+                        ?>
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light text-muted small text-uppercase">
                                 <tr>
                                     <th class="ps-3">Klaster</th>
                                     <th>Jumlah Anggota</th>
-                                    <th>Rerata Usia</th>
-                                    <th>Diagnosis Dominan</th>
-                                    <th>Unit Pelayanan</th>
+                                    <?php if (!empty($activeFeatures)): ?>
+                                        <?php foreach ($activeFeatures as $feat): ?>
+                                            <th>Centroid <?= esc(ucwords(str_replace('_', ' ', $feat))) ?></th>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <th>Rerata Usia</th>
+                                    <?php endif; ?>
+                                    <th>Entitas / Diagnosis Dominan</th>
+                                    <th>Kategori / Unit Dominan</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -121,7 +132,17 @@
                                                 <strong><?= number_format($cp['member_count']) ?></strong>
                                                 <span class="text-muted small">(<?= esc($cp['percentage']) ?>%)</span>
                                             </td>
-                                            <td><?= esc($cp['avg_age'] ?? $cp['centroid']['usia'] ?? '-') ?> thn</td>
+                                            <?php if (!empty($activeFeatures)): ?>
+                                                <?php foreach ($activeFeatures as $feat): ?>
+                                                    <td>
+                                                        <span class="fw-semibold text-navy">
+                                                            <?= isset($cp['centroid'][$feat]) ? number_format($cp['centroid'][$feat], 2) : '-' ?>
+                                                        </span>
+                                                    </td>
+                                                <?php endforeach; ?>
+                                            <?php else: ?>
+                                                <td><?= esc($cp['avg_age'] ?? $cp['centroid']['usia'] ?? '-') ?> thn</td>
+                                            <?php endif; ?>
                                             <td><?= esc($cp['top_diagnosis'] ?? '-') ?></td>
                                             <td><?= esc($cp['top_unit'] ?? '-') ?></td>
                                         </tr>
@@ -131,7 +152,11 @@
                                         <tr>
                                             <td class="ps-3 fw-bold text-navy">Klaster <?= esc($cc['cluster']) ?></td>
                                             <td><strong><?= number_format($cc['count']) ?></strong> data</td>
-                                            <td>-</td>
+                                            <?php if (!empty($activeFeatures)): ?>
+                                                <?php foreach ($activeFeatures as $feat): ?><td>-</td><?php endforeach; ?>
+                                            <?php else: ?>
+                                                <td>-</td>
+                                            <?php endif; ?>
                                             <td>-</td>
                                             <td>-</td>
                                         </tr>
