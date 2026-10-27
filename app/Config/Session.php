@@ -60,6 +60,21 @@ class Session extends BaseConfig
      */
     public string $savePath = WRITEPATH . 'session';
 
+    public function __construct()
+    {
+        parent::__construct();
+
+        // Di Vercel (AWS Lambda serverless), hanya folder /tmp yang bisa ditulis (writable)
+        if (getenv('VERCEL') || getenv('VERCEL_URL') || !empty($_SERVER['VERCEL']) || (!empty($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'vercel.app') !== false)) {
+            $tmpSession = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ci_sessions';
+            if (!is_dir($tmpSession)) {
+                @mkdir($tmpSession, 0777, true);
+            }
+            $this->savePath = $tmpSession;
+        }
+    }
+
+
     /**
      * --------------------------------------------------------------------------
      * Session Match IP

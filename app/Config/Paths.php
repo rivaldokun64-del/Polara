@@ -58,7 +58,7 @@ class Paths
     public function __construct()
     {
         // Di lingkungan Vercel / Serverless AWS Lambda, hanya direktori /tmp yang memiliki izin tulis
-        if (getenv('VERCEL') || getenv('AWS_LAMBDA_FUNCTION_NAME') || (!empty($_ENV['VERCEL']))) {
+        if (getenv('VERCEL') || getenv('VERCEL_URL') || getenv('AWS_LAMBDA_FUNCTION_NAME') || (!empty($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'vercel.app') !== false) || (!empty($_ENV['VERCEL']))) {
             $this->writableDirectory = '/tmp/writable';
             if (!is_dir('/tmp/writable')) {
                 @mkdir('/tmp/writable/cache', 0777, true);
