@@ -205,7 +205,9 @@ class Database extends Config
         $isVercel = getenv('VERCEL') || getenv('VERCEL_URL') || !empty($_SERVER['VERCEL']) || (!empty($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'vercel.app') !== false);
         $dbHost = getenv('DB_HOSTNAME') ?: ($this->default['hostname'] ?? '');
         if ($isVercel || (!empty($dbHost) && $dbHost !== 'localhost' && $dbHost !== '127.0.0.1')) {
-            $this->default['encrypt'] = true;
+            $this->default['encrypt'] = [
+                'ssl_verify' => false,
+            ];
         }
     }
 }
