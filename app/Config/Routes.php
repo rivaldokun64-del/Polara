@@ -40,5 +40,7 @@ $routes->group('', ['filter' => 'auth'], static function ($routes) {
     // Modul Manajemen Pengguna (Khusus Administrator)
     $routes->get('users', 'Users::index', ['filter' => 'role:admin', 'as' => 'users']);
     $routes->post('users/create', 'Users::create', ['filter' => 'role:admin', 'as' => 'users.create']);
+    $routes->post('users/update/(:num)', 'Users::update/$1', ['filter' => 'role:admin', 'as' => 'users.update']);
     $routes->get('users/toggle-status/(:num)', 'Users::toggleStatus/$1', ['filter' => 'role:admin', 'as' => 'users.toggle_status']);
+
 });

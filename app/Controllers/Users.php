@@ -112,4 +112,61 @@ class Users extends BaseController
         return redirect()->to(site_url('users'))
             ->with('success', "Status akun '{$user['username']}' berhasil diubah menjadi {$newStatus}.");
     }
+
+    /**
+     * Edit data pengguna (Nama, Role, dan/atau Password baru)
+     */
+    public function update($id)
+
+    {
+        if (session()->get('role') !== 'admin') {
+            return redirect()->to(site_url('dashboard'))
+                ->with('error', 'Akses ditolak: Hanya Administrator yang diizinkan mengedit akun pengguna.');
+        }
+
+        $id = (int) $id;
+        $user = $this->userModel->find($id);
+        if (!$user) {
+            return redirect()->to(site_url('users'))->with('error', 'Pengguna tidak ditemukan.');
+        }
+
+        $rules = [
+            'nama' => 'required|min_length[3]|max_length[100]',
+            'role' => 'required|in_list[admin,analis,pimpinan]',
+        ];
+
+        $newPassword = (string) $this->request->getPost('password');
+        if (!empty($newPassword)) {
+            $rules['password'] = 'min_length[6]';
+        }
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', $this->validator->getErrors());
+        }
+
+        $updateData = [
+            'nama' => trim((string) $this->request->getPost('nama')),
+            'role' => (string) $this->request->getPost('role'),
+        ];
+
+        if (!empty($newPassword)) {
+            $updateData['password'] = $newPassword; // Otomatis di-hash oleh UserModel callback
+        }
+
+        $this->userModel->update($id, $updateData);
+
+        // Jika mengupdate akun yang sedang login, update sesi nama & role
+        if ($id === (int) session()->get('user_id')) {
+            session()->set([
+                'nama' => $updateData['nama'],
+                'role' => $updateData['role'],
+            ]);
+        }
+
+        return redirect()->to(site_url('users'))
+            ->with('success', "Akun '{$user['username']}' berhasil diperbarui.");
+    }
 }
+

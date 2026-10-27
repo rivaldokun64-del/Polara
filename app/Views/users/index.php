@@ -117,27 +117,42 @@
                         </span>
                     </td>
                     <td style="text-align:right; padding-right:16px;">
-                        <?php if ($u['id'] == session()->get('user_id')): ?>
-                        <span style="font-size:12px; color:var(--muted); font-weight:600; background:var(--navy-06); padding:4px 10px; border-radius:20px; border:1px solid var(--border);">
-                            <i class="bi bi-person-check" style="color:var(--coral);"></i> Akun Anda
-                        </span>
-                        <?php else: ?>
-                        <button type="button"
-                            class="btn-ghost"
-                            style="font-size:12.5px; padding:6px 12px; <?= ($u['status'] === 'aktif') ? 'color:#DC2626;border-color:#FECACA;' : 'color:#166534;border-color:#BBF7D0;' ?>"
-                            onclick="confirmToggleStatus(
-                                '<?= site_url('users/toggle-status/' . $u['id']) ?>',
-                                '<?= esc($u['username'], 'js') ?>',
-                                '<?= esc($u['nama'], 'js') ?>',
-                                '<?= $u['status'] === 'aktif' ? 'nonaktif' : 'aktif' ?>'
-                            )">
-                            <i class="bi <?= ($u['status'] === 'aktif') ? 'bi-person-slash' : 'bi-person-check' ?>"></i>
-                            <?= ($u['status'] === 'aktif') ? 'Nonaktifkan' : 'Aktifkan' ?>
-                        </button>
-                        <?php endif; ?>
+                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                            <button type="button"
+                                class="btn-ghost"
+                                style="font-size:12.5px; padding:6px 12px; color:var(--navy); border-color:var(--border);"
+                                onclick="openEditUserModal(
+                                    '<?= $u['id'] ?>',
+                                    '<?= esc($u['nama'], 'js') ?>',
+                                    '<?= esc($u['username'], 'js') ?>',
+                                    '<?= esc($u['role'], 'js') ?>'
+                                )">
+                                <i class="bi bi-pencil-square" style="color:var(--coral);"></i> Edit
+                            </button>
+
+                            <?php if ($u['id'] == session()->get('user_id')): ?>
+                            <span style="font-size:12px; color:var(--muted); font-weight:600; background:var(--navy-06); padding:4px 10px; border-radius:20px; border:1px solid var(--border);">
+                                <i class="bi bi-person-check" style="color:var(--coral);"></i> Anda
+                            </span>
+                            <?php else: ?>
+                            <button type="button"
+                                class="btn-ghost"
+                                style="font-size:12.5px; padding:6px 12px; <?= ($u['status'] === 'aktif') ? 'color:#DC2626;border-color:#FECACA;' : 'color:#166534;border-color:#BBF7D0;' ?>"
+                                onclick="confirmToggleStatus(
+                                    '<?= site_url('users/toggle-status/' . $u['id']) ?>',
+                                    '<?= esc($u['username'], 'js') ?>',
+                                    '<?= esc($u['nama'], 'js') ?>',
+                                    '<?= $u['status'] === 'aktif' ? 'nonaktif' : 'aktif' ?>'
+                                )">
+                                <i class="bi <?= ($u['status'] === 'aktif') ? 'bi-person-slash' : 'bi-person-check' ?>"></i>
+                                <?= ($u['status'] === 'aktif') ? 'Nonaktifkan' : 'Aktifkan' ?>
+                            </button>
+                            <?php endif; ?>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>
+
             </tbody>
         </table>
     </div>
@@ -212,10 +227,72 @@
     </div>
 </div>
 
+<!-- Modal Edit Pengguna -->
+<div class="modal fade" id="modalEditUser" tabindex="-1" aria-labelledby="modalEditUserLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditUserLabel">
+                    <i class="bi bi-person-gear"></i> Edit Akun Pengguna
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <form action="" method="post" id="formEditUser">
+                <?= csrf_field() ?>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_username" class="form-label">Username</label>
+                        <input type="text" id="edit_username" class="form-control" disabled style="background:var(--navy-06); font-family:monospace; color:var(--navy);">
+                        <div class="form-text">Username bersifat permanen dan tidak dapat diubah.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_nama" class="form-label">Nama Lengkap <span style="color:var(--coral);">*</span></label>
+                        <input type="text" name="nama" id="edit_nama" class="form-control" required maxlength="100">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_role" class="form-label">Peran Pengguna (Role) <span style="color:var(--coral);">*</span></label>
+                        <select name="role" id="edit_role" class="form-select" required>
+                            <option value="analis">Analis — Akses Dataset &amp; Data Mining</option>
+                            <option value="pimpinan">Pimpinan — Akses Laporan &amp; Ringkasan Eksekutif</option>
+                            <option value="admin">Administrator — Akses Penuh Sistem &amp; Pengguna</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-0">
+                        <label for="edit_password" class="form-label">Kata Sandi Baru (Opsional)</label>
+                        <input type="password" name="password" id="edit_password" class="form-control" placeholder="Kosongkan jika tidak ingin mengganti kata sandi" minlength="6">
+                        <div class="form-text">Isi minimal 6 karakter hanya jika Anda ingin mengubah kata sandi akun ini.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn-coral">
+                        <i class="bi bi-check-circle"></i> Simpan Perubahan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
 <script>
+window.openEditUserModal = function(id, nama, username, role) {
+    const form = document.getElementById('formEditUser');
+    form.action = '<?= site_url('users/update') ?>/' + id;
+
+    document.getElementById('edit_username').value = username;
+    document.getElementById('edit_nama').value = nama;
+    document.getElementById('edit_role').value = role;
+    document.getElementById('edit_password').value = '';
+
+    new bootstrap.Modal(document.getElementById('modalEditUser')).show();
+};
+
 window.confirmToggleStatus = function(url, username, nama, targetStatus) {
     const isDeactivate = targetStatus === 'nonaktif';
     const iconWrap = document.getElementById('toggleIconWrap');
@@ -239,3 +316,4 @@ window.confirmToggleStatus = function(url, username, nama, targetStatus) {
 };
 </script>
 <?= $this->endSection() ?>
+
