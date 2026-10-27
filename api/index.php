@@ -27,5 +27,16 @@ if (!empty(getenv('ENCRYPTION_KEY'))) {
     $_SERVER['encryption.key'] = getenv('ENCRYPTION_KEY');
 }
 
+// Pastikan baseURL mengarah ke domain host saat ini (HTTPS) dan hapus index.php dari URL
+$httpHost = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? 'polara-flame.vercel.app';
+$proto = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'https';
+$currentBaseUrl = rtrim($proto . '://' . $httpHost, '/') . '/';
+
+$_ENV['app.baseURL'] = $currentBaseUrl;
+$_SERVER['app.baseURL'] = $currentBaseUrl;
+$_ENV['app.indexPage'] = '';
+$_SERVER['app.indexPage'] = '';
+
+
 require __DIR__ . '/../public/index.php';
 
