@@ -535,13 +535,16 @@ class Datasets extends BaseController
         $db->transComplete();
 
         if ($db->transStatus() === false) {
+            $dbError = $db->error();
+            $msg = !empty($dbError['message']) ? $dbError['message'] : 'Gagal mengeksekusi transaksi basis data.';
             return redirect()->back()
-                ->with('error', 'Terjadi kesalahan sistem saat menyimpan pemetaan dan data.');
+                ->with('error', 'Terjadi kesalahan sistem saat menyimpan pemetaan dan data: ' . $msg);
         }
 
         return redirect()->to(site_url('datasets'))
             ->with('import_success', "Konfirmasi kolom selesai. Sebanyak " . number_format($totalImported) . " baris data siap digunakan untuk analisis.");
     }
+
 
     /**
      * Hapus dataset beserta relasi dan berkas fisiknya

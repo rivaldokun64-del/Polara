@@ -29,7 +29,9 @@ class DataKunjunganModel extends Model
         'jumlah',
         'peringkat_asal',
         'sumber',
+        'raw_data',
     ];
+
 
     // Dates
     protected $useTimestamps = false;
