@@ -205,8 +205,24 @@ class Database extends Config
         $isVercel = getenv('VERCEL') || getenv('VERCEL_URL') || !empty($_SERVER['VERCEL']) || (!empty($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'vercel.app') !== false);
         $dbHost = getenv('DB_HOSTNAME') ?: ($this->default['hostname'] ?? '');
         if ($isVercel || (!empty($dbHost) && $dbHost !== 'localhost' && $dbHost !== '127.0.0.1')) {
+            // Deteksi sertifikat CA bawaan OS Linux di container Vercel/Lambda
+            $caBundle = null;
+            $possibleCa = [
+                '/etc/ssl/certs/ca-certificates.crt',
+                '/etc/pki/tls/certs/ca-bundle.crt',
+                '/etc/ssl/ca-bundle.pem',
+                '/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem',
+            ];
+            foreach ($possibleCa as $ca) {
+                if (file_exists($ca)) {
+                    $caBundle = $ca;
+                    break;
+                }
+            }
+
             $this->default['encrypt'] = [
                 'ssl_verify' => false,
+                'ssl_ca'     => $caBundle ?? '/etc/pki/tls/certs/ca-bundle.crt',
             ];
         }
     }

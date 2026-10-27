@@ -23,8 +23,12 @@ if (!empty(getenv('DB_PORT'))) {
     $_SERVER['database.default.port'] = getenv('DB_PORT');
 }
 // Wajib SSL / TLS untuk TiDB Cloud Serverless (harus berupa array agar mengaktifkan MYSQLI_CLIENT_SSL)
-$_ENV['database.default.encrypt'] = ['ssl_verify' => false];
-$_SERVER['database.default.encrypt'] = ['ssl_verify' => false];
+$_ENV['database.default.encrypt'] = [
+    'ssl_verify' => false,
+    'ssl_ca'     => '/etc/pki/tls/certs/ca-bundle.crt',
+];
+$_SERVER['database.default.encrypt'] = $_ENV['database.default.encrypt'];
+
 
 
 if (!empty(getenv('ENCRYPTION_KEY'))) {
