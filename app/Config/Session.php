@@ -39,7 +39,12 @@ class Session extends BaseConfig
      * --------------------------------------------------------------------------
      *
      * The number of SECONDS you want the session to last.
+     */
     public int $expiration = 7200; // 2 jam (7200 detik)
+
+    /**
+     * Session Save Path (nama tabel untuk DatabaseHandler, direktori untuk FileHandler)
+     */
     public string $savePath = 'ci_sessions';
 
     public function __construct()
