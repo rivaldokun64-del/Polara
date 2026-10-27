@@ -266,10 +266,6 @@
                         <input type="file" id="file_dataset" accept=".csv,.xlsx,.xls" style="display:none;">
                         <div class="file-name-display" id="fileNameDisplay">Belum ada file dipilih</div>
                     </div>
-                    <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;color:#166534;display:flex;align-items:flex-start;gap:8px;">
-                        <i class="bi bi-shield-check" style="font-size:16px;flex-shrink:0;margin-top:1px;"></i>
-                        <div><strong>Keamanan Berkas:</strong> File disimpan di lokasi terproteksi <code>writable/uploads/datasets/</code> dan divalidasi MIME &amp; format di sisi server.</div>
-                    </div>
                 </div>
 
                 <!-- Step 2: Confirm preview (before submit) -->
