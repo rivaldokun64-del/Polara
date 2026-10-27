@@ -206,14 +206,12 @@ class App extends BaseConfig
 
         // Hanya override baseURL di lingkungan Vercel/serverless
         // Di localhost/XAMPP, gunakan nilai dari .env (app.baseURL)
-        if (getenv('VERCEL') || getenv('VERCEL_URL')) {
-            $vercelUrl = getenv('VERCEL_URL');
-            if ($vercelUrl) {
-                $this->baseURL = 'https://' . rtrim($vercelUrl, '/') . '/';
-            } elseif (!empty($_SERVER['HTTP_HOST'])) {
-                $protocol = (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ? 'https://' : 'http://';
-                $this->baseURL = $protocol . $_SERVER['HTTP_HOST'] . '/';
-            }
+        if (getenv('VERCEL') || getenv('VERCEL_URL') || !empty($_SERVER['VERCEL'])) {
+            $host = getenv('APP_BASEURL') ?: ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? getenv('VERCEL_PROJECT_PRODUCTION_URL') ?? 'polara-flame.vercel.app');
+            // Bersihkan protocol dan trailing slash
+            $host = preg_replace('#^https?://#', '', rtrim($host, '/'));
+            $this->baseURL = 'https://' . $host . '/';
+            $this->indexPage = '';
         }
         // Jika bukan Vercel, biarkan baseURL dari .env atau default class property
     }
