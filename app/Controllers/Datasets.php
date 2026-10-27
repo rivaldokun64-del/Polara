@@ -505,36 +505,25 @@ class Datasets extends BaseController
                 'usia'               => $rawUsia,
                 'kelompok_usia'      => $kelompokUsia,
                 'jenis_kelamin'      => $rawJK,
-                'kode_diagnosis'     => $row['kode_diagnosis'] ?? null,
+                'kode_diagnosis'     => isset($row['kode_diagnosis']) ? substr(trim($row['kode_diagnosis']), 0, 10) : null,
                 'nama_diagnosis'     => $namaDiag,
                 'kelompok_diagnosis' => null,
                 'unit_pelayanan'     => $unitPelayanan,
                 'jumlah_kunjungan'   => $jmlKunjungan,
                 'jumlah'             => $jmlKunjungan,
-                'jenis_data'         => 'KUNJUNGAN',
-                'sumber'             => $targetVal,
+                'jenis_data'         => 'IMPORT',
                 'raw_data'           => json_encode($rawRow, JSON_UNESCAPED_UNICODE),
             ];
 
             if (count($batchData) >= 500) {
-                $ok = $this->kunjunganModel->insertBatch($batchData);
-                if ($ok === false) {
-                    $db2 = Database::connect('default');
-                    $dbErr = $db2->error();
-                    throw new \RuntimeException('Gagal menyimpan batch data: ' . ($dbErr['message'] ?? 'unknown error'));
-                }
+                $this->insertBatchIgnore($batchData);
                 $totalImported += count($batchData);
                 $batchData = [];
             }
         }
 
         if (!empty($batchData)) {
-            $ok = $this->kunjunganModel->insertBatch($batchData);
-            if ($ok === false) {
-                $db2 = Database::connect('default');
-                $dbErr = $db2->error();
-                throw new \RuntimeException('Gagal menyimpan batch data akhir: ' . ($dbErr['message'] ?? 'unknown error'));
-            }
+            $this->insertBatchIgnore($batchData);
             $totalImported += count($batchData);
         }
 
@@ -616,5 +605,39 @@ class Datasets extends BaseController
 
         return redirect()->to(site_url('datasets'))
             ->with('delete_success', "Dataset '{$dataset['nama_dataset']}' telah berhasil dihapus dari sistem.");
+    }
+
+    /**
+     * Jalankan INSERT IGNORE batch — baris duplikat (UNIQUE KEY) akan di-skip, bukan error.
+     * Ini menangani constraint: UNIQUE KEY (id_dataset, periode, jenis_data, id_diagnosis, jenis_kelamin)
+     */
+    private function insertBatchIgnore(array $rows): void
+    {
+        if (empty($rows)) {
+            return;
+        }
+
+        $db = Database::connect('default');
+
+        // Ambil kolom dari baris pertama
+        $columns = array_keys($rows[0]);
+        $escapedCols = implode(', ', array_map(fn($c) => '`' . $c . '`', $columns));
+
+        $placeholderRow = '(' . implode(', ', array_fill(0, count($columns), '?')) . ')';
+        $placeholders   = implode(', ', array_fill(0, count($rows), $placeholderRow));
+
+        $sql    = "INSERT IGNORE INTO `data_kunjungan` ({$escapedCols}) VALUES {$placeholders}";
+        $params = [];
+        foreach ($rows as $row) {
+            foreach ($columns as $col) {
+                $params[] = $row[$col] ?? null;
+            }
+        }
+
+        $result = $db->query($sql, $params);
+        if ($result === false) {
+            $err = $db->error();
+            throw new \RuntimeException('insertBatchIgnore gagal: ' . ($err['message'] ?? 'DB error'));
+        }
     }
 }
