@@ -27,15 +27,23 @@ if (!empty(getenv('ENCRYPTION_KEY'))) {
     $_SERVER['encryption.key'] = getenv('ENCRYPTION_KEY');
 }
 
-// Pastikan baseURL mengarah ke domain host saat ini (HTTPS) dan hapus index.php dari URL
-$httpHost = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? 'polara-flame.vercel.app';
-$proto = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'https';
-$currentBaseUrl = rtrim($proto . '://' . $httpHost, '/') . '/';
+// Pastikan baseURL mengarah ke domain host produksi (polara-flame.vercel.app)
+$targetHost = getenv('APP_BASEURL') ?: ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? 'polara-flame.vercel.app');
+// Jika domain preview yang dihasilkan vercel terdeteksi, normalisasi ke domain utama proyek
+if (strpos($targetHost, 'polara-') === 0 && strpos($targetHost, '.vercel.app') !== false && strpos($targetHost, 'polara-flame.vercel.app') === false) {
+    $targetHost = 'polara-flame.vercel.app';
+}
+$targetHost = preg_replace('#^https?://#', '', rtrim($targetHost, '/'));
+$currentBaseUrl = 'https://' . $targetHost . '/';
 
 $_ENV['app.baseURL'] = $currentBaseUrl;
 $_SERVER['app.baseURL'] = $currentBaseUrl;
+putenv("app.baseURL={$currentBaseUrl}");
+
 $_ENV['app.indexPage'] = '';
 $_SERVER['app.indexPage'] = '';
+putenv("app.indexPage=");
+
 
 
 require __DIR__ . '/../public/index.php';
