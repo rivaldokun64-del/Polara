@@ -109,10 +109,10 @@ class Cookie extends BaseConfig
     {
         parent::__construct();
 
-        if (getenv('VERCEL') || getenv('VERCEL_URL') || !empty($_SERVER['VERCEL']) || (!empty($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'vercel.app') !== false)) {
-            $this->secure = true;
-            $this->samesite = 'Lax';
-        }
+        // Biarkan secure = false agar CodeIgniter tidak menolak mengirim cookie di reverse-proxy Vercel
+        $this->secure = false;
+        $this->samesite = 'Lax';
     }
+
 
 }

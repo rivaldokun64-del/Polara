@@ -43,6 +43,10 @@ $_ENV['app.baseURL'] = $currentBaseUrl;
 $_SERVER['app.baseURL'] = $currentBaseUrl;
 putenv("app.baseURL={$currentBaseUrl}");
 
+$_SERVER['HTTPS'] = 'on';
+$_SERVER['SERVER_PORT'] = 443;
+
+
 $_ENV['app.indexPage'] = '';
 $_SERVER['app.indexPage'] = '';
 putenv("app.indexPage=");
