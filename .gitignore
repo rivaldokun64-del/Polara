@@ -2,7 +2,31 @@
 .env
 .env.*
 !.env.example
+
+# Folder nested (bukan bagian dari repo ini)
+/Polara/
+
+
 /vendor/
 /node_modules/
+
+# Writable folder CI4 — jangan di-commit
+/writable/cache/*
+/writable/logs/*
+/writable/session/*
+/writable/uploads/*
+/writable/debugbar/*
+
+# Tapi tetap simpan folder writable (perlu untuk CI4)
+!writable/cache/.gitkeep
+!writable/logs/.gitkeep
+!writable/session/.gitkeep
+!writable/uploads/.gitkeep
+!writable/debugbar/.gitkeep
+
+# File temporary
 *.sql
 *.sql.gz
+*.bak
+Thumbs.db
+.DS_Store

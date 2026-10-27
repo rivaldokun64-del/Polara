@@ -249,7 +249,7 @@
             text-align: left;
             transition: all 0.18s ease;
         }
-        .sb-logout-btn i {
+        .sb-logout-btn .sb-logout-icon {
             width: 32px;
             height: 32px;
             border-radius: 9px;
@@ -257,13 +257,34 @@
             align-items: center;
             justify-content: center;
             font-size: 16px;
-            background: rgba(220, 38, 38, 0.06);
+            background: rgba(220, 38, 38, 0.08);
             color: #DC2626;
             flex-shrink: 0;
             transition: all 0.2s ease;
         }
         .sb-logout-btn:hover { background: #FEF2F2; color: #B91C1C; }
-        .sb-logout-btn:hover i {
+        .sb-logout-btn:hover .sb-logout-icon {
+            background: #DC2626;
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
+        }
+        /* Logout icon-only standalone button (always visible in collapsed mode) */
+        .sb-logout-icon-btn {
+            display: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            background: rgba(220, 38, 38, 0.08);
+            color: #DC2626;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0 auto;
+        }
+        .sb-logout-icon-btn:hover {
             background: #DC2626;
             color: #ffffff;
             box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
@@ -327,11 +348,13 @@
                 display: none !important;
             }
             body.sidebar-collapsed #sidebar .sb-logout-btn {
-                padding: 8px 0 !important;
-                justify-content: center !important;
-            }
-            body.sidebar-collapsed #sidebar .sb-logout-btn span {
                 display: none !important;
+            }
+            body.sidebar-collapsed #sidebar .sb-footer-full {
+                display: none !important;
+            }
+            body.sidebar-collapsed #sidebar .sb-logout-icon-btn {
+                display: flex !important;
             }
             body.sidebar-collapsed #main-wrap {
                 margin-left: 68px !important;
@@ -1167,10 +1190,11 @@ $flashLogin   = session()->getFlashdata('login_success');
             </div>
         </nav>
 
-        <!-- Sidebar Footer: Avatar & User Account Switcher / Logout Sesuai Figma -->
+        <!-- Sidebar Footer: Avatar & Logout -->
         <div class="sb-footer" style="padding:10px 14px;border-top:1px solid var(--border);">
-            <div class="d-flex align-items-center justify-content-between" style="width:100%;">
-                <div class="d-flex align-items-center gap-2 min-width:0;">
+            <!-- Full footer (visible when expanded) -->
+            <div class="sb-footer-full d-flex align-items-center justify-content-between" style="width:100%;">
+                <div class="d-flex align-items-center gap-2" style="min-width:0;flex:1;overflow:hidden;">
                     <div style="width:34px;height:34px;border-radius:50%;background:#E8EDF2;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--navy);flex-shrink:0;">
                         <?= strtoupper(substr(session()->get('nama') ?? 'AD', 0, 2)) ?>
                     </div>
@@ -1178,17 +1202,21 @@ $flashLogin   = session()->getFlashdata('login_success');
                         <div style="font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                             <?= esc(session()->get('nama') ?? 'Administrator') ?>
                         </div>
-                        <div style="font-size:10px;color:var(--muted);white-space:nowrap;">
-                            Ruang kerja Polara
-                        </div>
+                        <div style="font-size:10px;color:var(--muted);white-space:nowrap;">Ruang kerja Polara</div>
                     </div>
                 </div>
-                <button type="button" class="btn p-0 border-0 text-muted" id="btnLogoutSidebar" title="Keluar / Opsi Pengguna" style="font-size:14px;">
-                    <i class="bi bi-chevron-expand"></i>
+                <button type="button" id="btnLogoutSidebar" title="Keluar dari Polara"
+                    style="width:30px;height:30px;border-radius:8px;border:none;background:rgba(220,38,38,0.08);color:#DC2626;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;transition:all 0.2s;flex-shrink:0;">
+                    <i class="bi bi-box-arrow-right"></i>
                 </button>
             </div>
+            <!-- Icon-only logout (visible when collapsed) -->
+            <button type="button" class="sb-logout-icon-btn" id="btnLogoutSidebarCollapsed" title="Keluar dari Polara">
+                <i class="bi bi-box-arrow-right"></i>
+            </button>
         </div>
     </aside>
+
 
     <!-- ═══════════════ MAIN ═══════════════ -->
     <div id="main-wrap">
@@ -1435,8 +1463,10 @@ if (btnCollapse) {
 
 /* ── Logout Confirm ── */
 const btnLogoutSb  = document.getElementById('btnLogoutSidebar');
+const btnLogoutSbC = document.getElementById('btnLogoutSidebarCollapsed');
 const modalLogout  = new bootstrap.Modal(document.getElementById('modalLogoutConfirm'));
-if (btnLogoutSb) btnLogoutSb.addEventListener('click', () => modalLogout.show());
+if (btnLogoutSb)  btnLogoutSb.addEventListener('click',  () => modalLogout.show());
+if (btnLogoutSbC) btnLogoutSbC.addEventListener('click', () => modalLogout.show());
 
 /* ── Delete Confirm ── */
 function confirmDelete(url, title, body) {

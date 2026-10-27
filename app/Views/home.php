@@ -481,34 +481,22 @@
                 <span class="badge-tag" style="background: var(--color-coral-light); color: var(--color-coral);">
                     <i class="ri-customer-service-2-line"></i> Kontak &amp; Dukungan
                 </span>
-                <h2 class="contact-title">Hubungi Kami</h2>
+                <h2 class="contact-title">Kontak Kami</h2>
                 <p class="contact-desc">
-                    Ada pertanyaan seputar implementasi Polara, kendala teknis, atau kolaborasi pengembangan analitik data kesehatan? Jangan ragu untuk menghubungi pengembang.
+                    Untuk pertanyaan, masukan, atau informasi mengenai platform analitik Polara, silakan hubungi kami melalui email.
                 </p>
             </div>
 
-            <div class="contact-grid">
+            <div class="contact-grid" style="max-width: 480px; margin: 0 auto;">
                 <!-- Card Email -->
                 <a href="mailto:rivaldokun64@gmail.com" class="contact-card" title="Kirim email ke rivaldokun64@gmail.com">
                     <div class="contact-icon contact-icon--email">
                         <i class="ri-mail-send-line"></i>
                     </div>
                     <div class="contact-details">
-                        <span class="contact-badge-type">Email Resmi</span>
+                        <span class="contact-badge-type">Email Kontak Polara</span>
                         <h3 class="contact-value">rivaldokun64@gmail.com</h3>
-                        <p class="contact-hint">Kirim pesan langsung via surat elektronik &rarr;</p>
-                    </div>
-                </a>
-
-                <!-- Card Instagram -->
-                <a href="https://instagram.com/rvallldooo" target="_blank" rel="noopener noreferrer" class="contact-card" title="Buka profil Instagram @rvallldooo">
-                    <div class="contact-icon contact-icon--ig">
-                        <i class="ri-instagram-line"></i>
-                    </div>
-                    <div class="contact-details">
-                        <span class="contact-badge-type">Instagram Pengembang</span>
-                        <h3 class="contact-value">@rvallldooo</h3>
-                        <p class="contact-hint">Kirim DM atau ikuti kabar terbaru Polara &rarr;</p>
+                        <p class="contact-hint">Kontak teknis proyek &rarr;</p>
                     </div>
                 </a>
             </div>

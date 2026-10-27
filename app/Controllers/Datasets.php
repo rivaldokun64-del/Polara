@@ -164,14 +164,19 @@ class Datasets extends BaseController
                 ->with('error', 'Gagal membaca isi berkas dataset: ' . $e->getMessage());
         }
 
-        // Ambil data profiling tersimpan atau generate baru jika belum ada
+        // Ambil data profiling tersimpan atau generate baru jika belum ada / jika skema kolom berubah
         $profiling = !empty($dataset['profiling_meta']) ? json_decode($dataset['profiling_meta'], true) : null;
-        if (!$profiling) {
+        $fileHeaders = $preview['headers'] ?? [];
+        $profilingHeaders = !empty($profiling['columns']) ? array_column($profiling['columns'], 'name') : [];
+        if (!$profiling || $dataset['status'] === 'uploaded' || $fileHeaders !== $profilingHeaders) {
             try {
-                $profiling = $this->datasetProfiler->profile($preview['headers'] ?? [], $preview['sample_rows'] ?? []);
-                $this->datasetModel->update($id, ['profiling_meta' => json_encode($profiling, JSON_UNESCAPED_UNICODE)]);
+                $profiling = $this->datasetProfiler->profile($fileHeaders, $preview['sample_rows'] ?? []);
+                $this->datasetModel->update($id, [
+                    'profiling_meta' => json_encode($profiling, JSON_UNESCAPED_UNICODE),
+                    'jumlah_baris'   => $preview['total_rows'] ?? $dataset['jumlah_baris'],
+                ]);
             } catch (\Throwable $e) {
-                $profiling = [];
+                $profiling = $profiling ?: [];
             }
         }
 
@@ -293,9 +298,11 @@ class Datasets extends BaseController
             ]);
         }
 
-        // Cari indeks kolom periode dan kelompok_usia dari headers sebagai referensi langsung
-        $periodeColIdx = null;
+        // Cari indeks kolom periode, kelompok_usia, wilayah/unit, dan nama entitas dari headers
+        $periodeColIdx      = null;
         $kelompokUsiaColIdx = null;
+        $unitColIdx         = null;
+        $entityColIdx       = null;
         foreach ($headers as $cIdx => $h) {
             $hNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)$h));
             if ($periodeColIdx === null && in_array($hNorm, ['periode', 'tanggal', 'tgl', 'date'], true)) {
@@ -303,6 +310,12 @@ class Datasets extends BaseController
             }
             if ($kelompokUsiaColIdx === null && in_array($hNorm, ['kelompokusia', 'kategoriusia', 'klpusia', 'agegroup'], true)) {
                 $kelompokUsiaColIdx = $cIdx;
+            }
+            if ($unitColIdx === null && in_array($hNorm, ['unit', 'unitpelayanan', 'poli', 'poliklinik', 'instalasi', 'ruangan', 'layanan'], true)) {
+                $unitColIdx = $cIdx;
+            }
+            if ($entityColIdx === null && in_array($hNorm, ['kabupatenkota', 'kabupaten', 'kota', 'provinsi', 'wilayah', 'nama', 'namapasien', 'diagnosis', 'penyakit'], true)) {
+                $entityColIdx = $cIdx;
             }
         }
 
@@ -371,12 +384,25 @@ class Datasets extends BaseController
                 if ($maxDate === null || $parsedPeriode > $maxDate) $maxDate = $parsedPeriode;
             }
 
-            // Nama diagnosis: jika tidak dipetakan, cari teks pertama pada baris atau gunakan nama dataset
+            // Unit Pelayanan / Kategori Wilayah Entitas
+            $unitPelayanan = $row['unit_pelayanan'] ?? null;
+            if (empty($unitPelayanan) && $unitColIdx !== null && isset($rawRow[$unitColIdx])) {
+                $unitPelayanan = trim((string)$rawRow[$unitColIdx]);
+            }
+            if (empty($unitPelayanan)) {
+                $unitPelayanan = 'Umum';
+            }
+
+            // Nama diagnosis / Entitas Data
             $namaDiag = $row['nama_diagnosis'] ?? null;
+            if (empty($namaDiag) && $entityColIdx !== null && isset($rawRow[$entityColIdx])) {
+                $namaDiag = trim((string)$rawRow[$entityColIdx]);
+            }
             if (empty($namaDiag) && !empty($rawRow)) {
-                foreach ($rawRow as $cVal) {
+                foreach ($rawRow as $cIdx => $cVal) {
+                    if ($cIdx === $periodeColIdx) continue;
                     if (!empty($cVal) && !is_numeric($cVal) && strlen($cVal) > 2) {
-                        $namaDiag = substr(trim($cVal), 0, 150);
+                        $namaDiag = substr(trim((string)$cVal), 0, 150);
                         break;
                     }
                 }
@@ -423,7 +449,11 @@ class Datasets extends BaseController
                         $jmlKunjungan = max(1, (int)round((float)$cNum));
                     }
                 } else {
-                    foreach ($rawRow as $cVal) {
+                    // Jika tidak ada kolom total khusus, hitung jumlah seluruh kolom numerik pada baris
+                    $rowSum = 0;
+                    $foundNumeric = false;
+                    foreach ($rawRow as $cIdx => $cVal) {
+                        if ($cIdx === $periodeColIdx) continue;
                         $cNum = trim((string)$cVal);
                         if (preg_match('/^\d{1,3}(\.\d{3})+$/', $cNum)) {
                             $cNum = str_replace('.', '', $cNum);
@@ -431,9 +461,12 @@ class Datasets extends BaseController
                             $cNum = str_replace(',', '.', $cNum);
                         }
                         if (is_numeric($cNum) && (float)$cNum > 0) {
-                            $jmlKunjungan = max(1, (int)round((float)$cNum));
-                            break;
+                            $rowSum += (float)$cNum;
+                            $foundNumeric = true;
                         }
+                    }
+                    if ($foundNumeric && $rowSum > 0) {
+                        $jmlKunjungan = (int)round($rowSum);
                     }
                 }
             }
@@ -455,7 +488,7 @@ class Datasets extends BaseController
                 'kode_diagnosis'     => $row['kode_diagnosis'] ?? null,
                 'nama_diagnosis'     => $namaDiag,
                 'kelompok_diagnosis' => null,
-                'unit_pelayanan'     => $row['unit_pelayanan'] ?? 'Umum',
+                'unit_pelayanan'     => $unitPelayanan,
                 'jumlah_kunjungan'   => $jmlKunjungan,
                 'jumlah'             => $jmlKunjungan,
                 'jenis_data'         => 'KUNJUNGAN',

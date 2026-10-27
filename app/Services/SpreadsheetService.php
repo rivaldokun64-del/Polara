@@ -569,20 +569,102 @@ class SpreadsheetService
             throw new \RuntimeException("Berkas Excel tidak memiliki baris data.");
         }
 
-        $headers = array_shift($allRows);
-        for ($i = count($headers); $i < $maxCols; $i++) {
-            $headers[$i] = 'Kolom_' . ($i + 1);
+        // ── Smart Multi-Row & Complex Header Detection ──
+        // 1. Temukan baris kandidat header terbaik (bukan judul sheet 1 sel atau teks tunggal)
+        $headerRowIdx = 0;
+        $maxRealText = 0;
+        $scanLimit = min(10, count($allRows));
+
+        for ($rIdx = 0; $rIdx < $scanLimit; $rIdx++) {
+            $row = $allRows[$rIdx];
+            $realTexts = array_filter($row, function($v) {
+                $v = trim((string)$v);
+                return $v !== '' 
+                    && !preg_match('/^Kolom[_\s]\d+$/i', $v)
+                    && !is_numeric(str_replace(['.', ','], '', $v))
+                    && !preg_match('/^(19|20)\d{2}$/', $v);
+            });
+            $cnt = count($realTexts);
+            if ($cnt > $maxRealText) {
+                $maxRealText = $cnt;
+                $headerRowIdx = $rIdx;
+            }
         }
 
-        // Bersihkan header
-        $headers = array_map(function ($h) {
-            return trim(trim((string)$h), '"\'');
-        }, $headers);
+        // 2. Buat header awal dari baris kandidat terbaik
+        $headers = $allRows[$headerRowIdx];
+
+        // Isi kolom yang kosong dari baris di atasnya (misal label kategori di baris 0/1 seperti 'Kabupaten/Kota')
+        for ($c = 0; $c < $maxCols; $c++) {
+            $hVal = trim((string)($headers[$c] ?? ''));
+            if ($hVal === '' || preg_match('/^Kolom[_\s]\d+$/i', $hVal)) {
+                for ($back = $headerRowIdx - 1; $back >= 0; $back--) {
+                    $prev = trim((string)($allRows[$back][$c] ?? ''));
+                    if ($prev !== '' && !preg_match('/^Kolom[_\s]\d+$/i', $prev)) {
+                        $headers[$c] = $prev;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Periksa apakah baris berikutnya adalah subheader tahun/periode (misal baris '2023, 2023...')
+        $dataStartIdx = $headerRowIdx + 1;
+        if (isset($allRows[$dataStartIdx])) {
+            $nextRow = $allRows[$dataStartIdx];
+            $nextNonEmpty = 0;
+            $allYears = true;
+            foreach ($nextRow as $v) {
+                $v = trim((string)$v);
+                if ($v === '') continue;
+                $nextNonEmpty++;
+                if (!preg_match('/^(19|20)\d{2}$/', $v)) {
+                    $allYears = false;
+                }
+            }
+            if ($nextNonEmpty >= 2 && $allYears) {
+                for ($c = 0; $c < $maxCols; $c++) {
+                    $y = trim((string)($nextRow[$c] ?? ''));
+                    if ($y !== '' && isset($headers[$c]) && $headers[$c] !== '' && !str_contains($headers[$c], $y)) {
+                        $headers[$c] .= " ($y)";
+                    }
+                }
+                $dataStartIdx++;
+            }
+        }
+
+        // 4. Pastikan semua kolom memiliki nama header yang jelas
+        for ($c = 0; $c < $maxCols; $c++) {
+            $h = trim((string)($headers[$c] ?? ''));
+            if ($h === '' || preg_match('/^Kolom[_\s]\d+$/i', $h)) {
+                $headers[$c] = 'Kolom_' . ($c + 1);
+            } else {
+                $headers[$c] = trim($h, '"\'');
+            }
+        }
+
+        // 5. Ekstraksi baris data aktual (lewati baris judul/header di atas $dataStartIdx)
+        $cleanRows = [];
+        $totalRaw = count($allRows);
+        for ($i = $dataStartIdx; $i < $totalRaw; $i++) {
+            $r = $allRows[$i];
+            // Lewati baris yang sepenuhnya kosong
+            $hasContent = false;
+            foreach ($r as $val) {
+                if (trim((string)$val) !== '') {
+                    $hasContent = true;
+                    break;
+                }
+            }
+            if ($hasContent) {
+                $cleanRows[] = $r;
+            }
+        }
 
         return [
             'headers' => $headers,
-            'rows'    => $allRows,
-            'total'   => count($allRows),
+            'rows'    => $cleanRows,
+            'total'   => count($cleanRows),
         ];
     }
 
@@ -911,9 +993,18 @@ class SpreadsheetService
             return null;
         }
 
-        // 1. Cek Excel Serial Date (angka integer antara 20000 s/d 80000)
-        // misal 45658 = 2025-01-01
-        if (is_numeric($val) && (float)$val >= 20000 && (float)$val <= 80000) {
+        // 1. Cek Excel Serial Date (angka integer antara 30000 s/d 60000, ~tahun 1982 s/d 2064)
+        // HANYA jika ada indikasi kolom tanggal pada header (misal 'tgl', 'date', 'periode') atau bukan kolom numerik biasa
+        $hasDateHint = false;
+        if (!empty($headers)) {
+            foreach ($headers as $h) {
+                if (preg_match('/(tgl|tanggal|date|periode|waktu|time)/i', (string)$h)) {
+                    $hasDateHint = true;
+                    break;
+                }
+            }
+        }
+        if ($hasDateHint && is_numeric($val) && (float)$val >= 30000 && (float)$val <= 60000 && !str_contains($val, '.')) {
             $serial = (float)$val;
             $ts = ($serial - 25569) * 86400;
             return gmdate('Y-m-d', (int)round($ts));

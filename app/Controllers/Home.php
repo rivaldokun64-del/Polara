@@ -94,9 +94,20 @@ class Home extends BaseController
         $dataset['uploader_nama'] = $uploader['nama'] ?? 'Sistem';
         $dataset['uploader_role'] = $uploader['role'] ?? 'analis';
 
-        // ── Auto-generate profiling_meta jika belum ada ──
+        // ── Auto-generate / refresh profiling_meta ──
+        // Re-profile jika: belum ada, atau format lama yang mengandung 'Kolom_2' padahal header aslinya sudah terdeteksi
         $profilingMeta = !empty($dataset['profiling_meta']) ? json_decode($dataset['profiling_meta'], true) : null;
-        if (empty($profilingMeta) && !empty($dataset['nama_file_internal'])) {
+        $hasDummyHeader = false;
+        if (!empty($profilingMeta['columns'])) {
+            foreach ($profilingMeta['columns'] as $colP) {
+                if (preg_match('/^Kolom_\d+$/i', $colP['name'] ?? '')) {
+                    $hasDummyHeader = true;
+                    break;
+                }
+            }
+        }
+        $needsReprofiling = empty($profilingMeta) || empty($profilingMeta['dashboard_config']) || $hasDummyHeader;
+        if ($needsReprofiling && !empty($dataset['nama_file_internal'])) {
             $filePath = WRITEPATH . 'uploads/datasets/' . $dataset['nama_file_internal'];
             if (file_exists($filePath)) {
                 try {
@@ -127,17 +138,26 @@ class Home extends BaseController
             $totalCases = $totalRows;
         }
 
-        // ── Label total adaptif (e-Damika style) ──
-        $dsNameLower = strtolower(($dataset['nama_dataset'] ?? '') . ' ' . ($dataset['nama_file_asli'] ?? ''));
-        if (str_contains($dsNameLower, 'kematian') || str_contains($dsNameLower, 'jiwa')) {
-            $cardTotalLabel = 'Kasus Kematian';
-            $cardTotalSub = 'Jiwa / Kasus Tercatat';
-        } elseif (str_contains($dsNameLower, 'kunjungan')) {
-            $cardTotalLabel = 'Total Kunjungan';
-            $cardTotalSub = 'Kunjungan Tercatat';
+        // ── Label total adaptif dari DatasetProfiler ──
+        $dashCfg     = $profilingMeta['dashboard_config'] ?? null;
+        $datasetType = $profilingMeta['dataset_type']    ?? 'umum';
+        if ($dashCfg) {
+            // Gunakan label dari dashboard_config hasil profiling
+            $cardTotalLabel = $dashCfg['measure_label'] ?? 'Total Data';
+            $cardTotalSub   = $dashCfg['measure_unit']  ?? 'Catatan Terdata';
         } else {
-            $cardTotalLabel = 'Total Kasus / Data';
-            $cardTotalSub = 'Catatan Terdata';
+            // Fallback berdasarkan nama dataset
+            $dsNameLower = strtolower(($dataset['nama_dataset'] ?? '') . ' ' . ($dataset['nama_file_asli'] ?? ''));
+            if (str_contains($dsNameLower, 'kematian') || str_contains($dsNameLower, 'jiwa')) {
+                $cardTotalLabel = 'Kasus Kematian';
+                $cardTotalSub   = 'Jiwa / Kasus Tercatat';
+            } elseif (str_contains($dsNameLower, 'kunjungan')) {
+                $cardTotalLabel = 'Total Kunjungan';
+                $cardTotalSub   = 'Kunjungan Tercatat';
+            } else {
+                $cardTotalLabel = 'Total Kasus / Data';
+                $cardTotalSub   = 'Catatan Terdata';
+            }
         }
 
         // ── Akurasi Model Terbaik & Silhouette Clustering ──
@@ -364,22 +384,20 @@ class Home extends BaseController
                     ->where('id_dataset', $datasetId)
                     ->where('unit_pelayanan IS NOT NULL')
                     ->where("unit_pelayanan != ''")
+                    ->where("unit_pelayanan != 'Umum'")
                     ->groupBy('unit_pelayanan')
                     ->orderBy('total', 'DESC')
                     ->limit(10)
                     ->get()->getResultArray();
             }
 
-            // Fallback ke nama_dataset jika masih kosong
-            if (empty($topDiagnosis)) {
-                $topDiagnosis = [[
-                    'label' => $dataset['nama_dataset'],
-                    'total' => $totalRows,
-                ]];
+            // Jika hanya berisi nama_dataset atau kosong, biarkan kosong agar diekstrak cerdas dari file
+            if (!empty($topDiagnosis) && count($topDiagnosis) === 1 && ($topDiagnosis[0]['label'] === $dataset['nama_dataset'] || $topDiagnosis[0]['label'] === 'Umum')) {
+                $topDiagnosis = [];
             }
         }
 
-        // ── Top Unit Pelayanan ──
+        // ── Top Unit Pelayanan / Indikator Penyakit ──
         $topUnit = [];
         if ($hasKunjunganData) {
             $rawUnit = $db->table('data_kunjungan')
@@ -393,7 +411,44 @@ class Home extends BaseController
                 ->limit(8)
                 ->get()->getResultArray();
 
-            // Jika semua unit adalah 'Umum', gunakan kategori alternatif
+            // Jika unit_pelayanan hanya memiliki 1 variasi (misal 'Dinkes / RS / Puskesmas' atau 'Umum'),
+            // lakukan breakdown indikator/penyakit dari berkas fisik atau raw_data agar grafik 2 variatif & bermakna
+            if (count($rawUnit) <= 1 && !empty($dataset['nama_file_internal'])) {
+                try {
+                    $ss = new SpreadsheetService();
+                    $filePath = WRITEPATH . 'uploads/datasets/' . $dataset['nama_file_internal'];
+                    if (file_exists($filePath)) {
+                        $parsedFile = $ss->parseXlsx($filePath, 50);
+                        $fileHeaders = $parsedFile['headers'] ?? [];
+                        $fileRows    = $parsedFile['rows'] ?? [];
+
+                        $indicatorBreakdown = [];
+                        for ($c = 1; $c < count($fileHeaders); $c++) {
+                            $indName = preg_replace('/\s*\(\d{4}\)$/', '', trim($fileHeaders[$c]));
+                            $sum = 0;
+                            foreach ($fileRows as $fr) {
+                                $wName = trim((string)($fr[0] ?? ''));
+                                if (preg_match('/^(jumlah|total|dki\s*jakarta|indonesia)$/i', $wName)) continue;
+                                $v = str_replace(['.', ','], '', trim((string)($fr[$c] ?? '0')));
+                                if (is_numeric($v)) $sum += (float)$v;
+                            }
+                            if ($sum > 0) {
+                                $indicatorBreakdown[] = [
+                                    'unit_pelayanan' => $indName,
+                                    'total'          => (int)round($sum),
+                                ];
+                            }
+                        }
+                        usort($indicatorBreakdown, fn($a, $b) => $b['total'] <=> $a['total']);
+                        if (!empty($indicatorBreakdown)) {
+                            $rawUnit = array_slice($indicatorBreakdown, 0, 8);
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Abaikan jika gagal
+                }
+            }
+
             if (empty($rawUnit)) {
                 $rawUnit = $db->table('data_kunjungan')
                     ->select('unit_pelayanan, SUM(jumlah_kunjungan) as total')
@@ -696,6 +751,12 @@ class Home extends BaseController
             'raw_file_data'             => $rawFileData,
             'has_mapping'               => !empty($columns),
             'profiling_meta'            => $profilingMeta,
+            'dashboard_config'          => $dashCfg,
+            'dataset_type'              => $datasetType,
+            'measure_label'             => $cardTotalLabel,
+            'measure_unit'              => $cardTotalSub,
+            'map_enabled'               => (bool)($dashCfg['map_enabled'] ?? false),
+            'map_type'                  => $dashCfg['map_type'] ?? null,
             'is_death_analysis'         => $isDeathAnalysisDataset,
             'death_categories'          => $deathCategories,
             'province_rows'             => $provinceRows,

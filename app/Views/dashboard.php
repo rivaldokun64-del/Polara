@@ -134,28 +134,56 @@ body {
     background: #FFFFFF;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-card);
-    padding: 18px 20px;
+    padding: 18px 20px 18px 22px;
     display: flex;
     align-items: flex-start;
-    gap: 14px;
+    gap: 16px;
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
     position: relative;
-    box-shadow: 0 1px 2px rgba(16,43,70,0.02);
+    box-shadow: 0 1px 4px rgba(16,43,70,0.04);
+    overflow: hidden;
+}
+.stat-box::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 14px 0 0 14px;
+    background: var(--stat-accent, #E5E7EB);
 }
 .stat-box:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(16,43,70,0.06);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(16,43,70,0.08);
     border-color: var(--border-hover);
 }
 .stat-box-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
     flex-shrink: 0;
+    transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), box-shadow 0.22s ease;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    position: relative;
+    overflow: hidden;
+}
+.stat-box-icon::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    top: -30%;
+    left: -30%;
+    width: 60%;
+    height: 60%;
+    border-radius: 50%;
+    pointer-events: none;
+}
+.stat-box:hover .stat-box-icon {
+    transform: scale(1.12);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
 }
 .stat-box-label {
     font-size: 11px;
@@ -356,8 +384,8 @@ body {
     <!-- Bagian Atas: Judul Dashboard Eksekutif, Deskripsi, Tombol Aksi -->
     <div class="dash-header-wrap">
         <div>
-            <h1 class="dash-title">Dashboard Eksekutif</h1>
-            <p class="dash-subtitle">Pantau mortalitas, pahami sebaran penyebab utama kematian, dan telusuri data kesehatan wilayah.</p>
+            <h1 class="dash-title" id="dashTitle">Dashboard Polara</h1>
+            <p class="dash-subtitle" id="dashSubtitle">Memuat informasi dataset aktif...</p>
         </div>
         <div class="dash-top-actions">
             <?php if (in_array(session()->get('role'), ['admin', 'analis'])): ?>
@@ -375,7 +403,7 @@ body {
     <div class="card-p p-5 text-center">
         <div class="empty-state-icon mx-auto mb-3"><img src="<?= base_url('assets/favicon/Maskot rubah Polara.png') ?>" alt="Polara" style="width:56px;height:56px;object-fit:contain;"></div>
         <h5 style="color:var(--navy);font-weight:700;">Belum Ada Dataset</h5>
-        <p class="text-muted" style="max-width:400px;margin:0 auto 16px;">Silakan unggah dataset rekam medis atau mortalitas untuk mengaktifkan dashboard analitik.</p>
+        <p class="text-muted" style="max-width:400px;margin:0 auto 16px;">Silakan unggah dataset untuk mengaktifkan dashboard analitik.</p>
         <a href="<?= site_url('datasets') ?>" class="btn-coral mx-auto"><i class="bi bi-cloud-upload"></i> Unggah Dataset</a>
     </div>
     <?php else: ?>
@@ -409,66 +437,62 @@ body {
         </div>
     </div>
 
-    <!-- 4 Kartu Statistik Terhitung Aktual -->
+    <!-- 4 Kartu Ringkasan Statistik Adaptif -->
     <div class="stat-cards-grid">
-        <!-- Kartu 1: Total Kematian -->
-        <div class="stat-box">
-            <div class="stat-box-icon" style="background:#FEE2E2;color:#DC2626;"><i class="bi bi-heart-pulse-fill"></i></div>
-            <div class="flex-grow-1 min-width:0;">
-                <div class="stat-box-label" id="cardLabel1">TOTAL KEMATIAN</div>
+        <div class="stat-box" style="--stat-accent:#DC2626;">
+            <div class="stat-box-icon" id="cardIcon1" style="background:linear-gradient(135deg,#FF6B6B 0%,#DC2626 100%);"></div>
+            <div class="flex-grow-1" style="min-width:0;">
+                <div class="stat-box-label" id="cardLabel1">TOTAL DATA</div>
                 <div class="stat-box-num" id="cardStat1">—</div>
-                <div class="stat-box-sub" id="cardSub1">Mortalitas tercatat pada sumber</div>
+                <div class="stat-box-sub" id="cardSub1">Memuat...</div>
             </div>
         </div>
 
-        <!-- Kartu 2: Provinsi Terdata -->
-        <div class="stat-box">
-            <div class="stat-box-icon" style="background:#E0F2FE;color:#0284C7;"><i class="bi bi-geo-alt-fill"></i></div>
-            <div class="flex-grow-1 min-width:0;">
-                <div class="stat-box-label" id="cardLabel2">PROVINSI TERDATA</div>
+        <div class="stat-box" style="--stat-accent:#0284C7;">
+            <div class="stat-box-icon" id="cardIcon2" style="background:linear-gradient(135deg,#38BDF8 0%,#0284C7 100%);"></div>
+            <div class="flex-grow-1" style="min-width:0;">
+                <div class="stat-box-label" id="cardLabel2">DIMENSI DATA</div>
                 <div class="stat-box-num" id="cardStat2">—</div>
-                <div class="stat-box-sub" id="cardSub2">Cakupan wilayah nasional</div>
+                <div class="stat-box-sub" id="cardSub2">Memuat...</div>
             </div>
         </div>
 
-        <!-- Kartu 3: Penyebab Kematian -->
-        <div class="stat-box">
-            <div class="stat-box-icon" style="background:#FEF3C7;color:#D97706;"><i class="bi bi-pie-chart-fill"></i></div>
-            <div class="flex-grow-1 min-width:0;">
-                <div class="stat-box-label" id="cardLabel3">PENYEBAB KEMATIAN</div>
-                <div class="stat-box-num" id="cardStat3">5 Kategori</div>
-                <div class="stat-box-sub" id="cardSub3">Klasifikasi penyebab mortalitas</div>
+        <div class="stat-box" style="--stat-accent:#D97706;">
+            <div class="stat-box-icon" id="cardIcon3" style="background:linear-gradient(135deg,#FCD34D 0%,#D97706 100%);"></div>
+            <div class="flex-grow-1" style="min-width:0;">
+                <div class="stat-box-label" id="cardLabel3">RENTANG PERIODE</div>
+                <div class="stat-box-num" id="cardStat3">—</div>
+                <div class="stat-box-sub" id="cardSub3">Memuat...</div>
             </div>
         </div>
 
-        <!-- Kartu 4: Kategori Kematian Terbesar -->
-        <div class="stat-box">
-            <div class="stat-box-icon" style="background:#DCFCE7;color:#16A34A;"><i class="bi bi-award-fill"></i></div>
-            <div class="flex-grow-1 min-width:0;">
-                <div class="stat-box-label" id="cardLabel4">KATEGORI TERBESAR</div>
+        <div class="stat-box" style="--stat-accent:#16A34A;">
+            <div class="stat-box-icon" id="cardIcon4" style="background:linear-gradient(135deg,#4ADE80 0%,#16A34A 100%);"></div>
+            <div class="flex-grow-1" style="min-width:0;">
+                <div class="stat-box-label" id="cardLabel4">KATEGORI UTAMA</div>
                 <div class="stat-box-num" id="cardStat4" style="font-size:18px;margin-top:2px;line-height:1.2;">—</div>
-                <div class="stat-box-sub" id="cardSub4">—</div>
+                <div class="stat-box-sub" id="cardSub4">Memuat...</div>
             </div>
         </div>
     </div>
 
-    <!-- Notice Bar Validasi -->
-    <div class="validation-notice-bar" id="noticeValidationBar">
+    <!-- Notice Bar Validasi (dinamis, hanya untuk dataset mortalitas) -->
+    <div class="validation-notice-bar" id="noticeValidationBar" style="display:none;">
         <i class="bi bi-shield-check" style="font-size:16px;"></i>
-        <span><strong>Validasi Excel Terverifikasi:</strong> Total 4.456.007 jiwa pada 38 provinsi selaras dengan baris Jumlah sumber resmi. Perbedaan pembulatan desimal kategori dijelaskan pada catatan pengolahan sumber.</span>
+        <span id="noticeValidationText"><strong>Dataset Terverifikasi:</strong> Data dimuat dari sumber aktif.</span>
     </div>
 
-    <!-- Baris 1: Grafik Batang Horizontal Distribusi Penyebab + 5 Provinsi Terbanyak -->
-    <div class="row g-4 mb-4">
-        <!-- Grafik 1 — Distribusi Kematian Menurut Penyebab -->
-        <div class="col-12 col-xl-6">
+    <!-- Baris 1: Grafik adaptif Distribusi + Top Entitas -->
+    <div class="row g-4 mb-4" id="chartRowMain">
+        <!-- Grafik 1 — Distribusi Utama -->
+        <div class="col-12 col-xl-6" id="chartCol1">
             <div class="figma-card h-100">
                 <div class="figma-card-header">
                     <div>
-                        <h2 class="figma-card-title">Distribusi Kematian Menurut Penyebab</h2>
-                        <p class="figma-card-subtitle">Perbandingan kelima kategori penyebab utama mortalitas (diurutkan terbesar ke terkecil)</p>
+                        <h2 class="figma-card-title" id="chart1Title">Distribusi Data</h2>
+                        <p class="figma-card-subtitle" id="chart1Subtitle">Distribusi berdasarkan dimensi utama dataset</p>
                     </div>
-                    <span class="badge-tag-figma">5 Kategori</span>
+                    <span class="badge-tag-figma" id="chart1Badge">—</span>
                 </div>
                 <div style="position:relative;height:270px;">
                     <canvas id="chartCauses"></canvas>
@@ -476,15 +500,15 @@ body {
             </div>
         </div>
 
-        <!-- Grafik 2 — Lima Provinsi dengan Kematian Terbanyak -->
-        <div class="col-12 col-xl-6">
+        <!-- Grafik 2 — Top Entitas / Wilayah -->
+        <div class="col-12 col-xl-6" id="chartCol2">
             <div class="figma-card h-100">
                 <div class="figma-card-header">
                     <div>
-                        <h2 class="figma-card-title">Lima Provinsi dengan Kematian Terbanyak</h2>
-                        <p class="figma-card-subtitle">Peringkat 5 wilayah tertinggi berdasarkan jumlah kematian aktual</p>
+                        <h2 class="figma-card-title" id="chart2Title">Top Entitas Data</h2>
+                        <p class="figma-card-subtitle" id="chart2Subtitle">Lima entitas dengan nilai tertinggi pada dataset</p>
                     </div>
-                    <span class="badge-tag-figma">Top 5 Wilayah</span>
+                    <span class="badge-tag-figma" id="chart2Badge">Top 5</span>
                 </div>
                 <div style="position:relative;height:270px;">
                     <canvas id="chartTopProvinces"></canvas>
@@ -493,8 +517,54 @@ body {
         </div>
     </div>
 
-    <!-- Grafik 3 — Perbandingan Penyebab Kematian Antarprovinsi -->
-    <div class="figma-card">
+    <!-- Grafik Tambahan: Tren Waktu (muncul jika ada data tren) -->
+    <div class="figma-card mb-4" id="chartTrendSection" style="display:none;">
+        <div class="figma-card-header">
+            <div>
+                <h2 class="figma-card-title" id="chartTrendTitle">Tren Data</h2>
+                <p class="figma-card-subtitle" id="chartTrendSubtitle">Perubahan nilai indikator utama dari waktu ke waktu</p>
+            </div>
+            <span class="badge-tag-figma">Tren Periode</span>
+        </div>
+        <div style="position:relative;height:240px;">
+            <canvas id="chartTrend"></canvas>
+        </div>
+    </div>
+
+    <!-- Grafik Distribusi Gender (muncul jika ada data gender) -->
+    <div class="row g-4 mb-4" id="chartGenderAgeSection" style="display:none;">
+        <div class="col-12 col-md-6" id="chartGenderCol">
+            <div class="figma-card h-100">
+                <div class="figma-card-header">
+                    <div>
+                        <h2 class="figma-card-title">Distribusi Jenis Kelamin</h2>
+                        <p class="figma-card-subtitle">Proporsi Laki-laki vs Perempuan</p>
+                    </div>
+                    <span class="badge-tag-figma">Gender</span>
+                </div>
+                <div style="position:relative;height:220px;">
+                    <canvas id="chartGender"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6" id="chartAgeCol">
+            <div class="figma-card h-100">
+                <div class="figma-card-header">
+                    <div>
+                        <h2 class="figma-card-title">Distribusi Kelompok Usia</h2>
+                        <p class="figma-card-subtitle">Komposisi usia pasien/subjek</p>
+                    </div>
+                    <span class="badge-tag-figma">Usia</span>
+                </div>
+                <div style="position:relative;height:220px;">
+                    <canvas id="chartAge"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafik 3 — Perbandingan Antarprovinsi (hanya mortalitas) -->
+    <div class="figma-card mb-4" id="chartComparisonSection" style="display:none;">
         <div class="figma-card-header">
             <div>
                 <h2 class="figma-card-title">Perbandingan Penyebab Kematian Antarprovinsi</h2>
@@ -521,12 +591,12 @@ body {
         </div>
     </div>
 
-    <!-- Tabel Rincian Provinsi -->
-    <div class="figma-card">
+    <!-- Tabel Rincian: Adaptif untuk semua jenis dataset -->
+    <div class="figma-card" id="tableMainSection">
         <div class="figma-card-header">
             <div>
-                <h2 class="figma-card-title">Rincian Mortalitas Seluruh Provinsi</h2>
-                <p class="figma-card-subtitle">Data lengkap 38 provinsi dengan proporsi kontribusi terhadap total kematian nasional</p>
+                <h2 class="figma-card-title" id="tableMainTitle">Rincian Data</h2>
+                <p class="figma-card-subtitle" id="tableMainSubtitle">Data lengkap dari dataset aktif</p>
             </div>
             <div class="d-flex align-items-center gap-2">
                 <button type="button" class="btn-top-secondary py-1 px-3" style="font-size:12px;" onclick="exportTableToCsv()">
@@ -536,26 +606,16 @@ body {
         </div>
 
         <div class="table-toolbar">
-            <input type="text" id="tableSearch" class="table-search-input" placeholder="Cari nama provinsi..." aria-label="Cari provinsi">
+            <input type="text" id="tableSearch" class="table-search-input" placeholder="Cari data..." aria-label="Cari data">
             <div style="font-size:12px;color:var(--muted);">
-                Menampilkan <strong id="visibleRowCount">38</strong> dari 38 provinsi terdata
+                Menampilkan <strong id="visibleRowCount">—</strong> baris data
             </div>
         </div>
 
         <div class="table-death-wrap">
             <table class="table-death" id="tableProvinces">
-                <thead>
-                    <tr>
-                        <th style="width:40px;text-align:center;">#</th>
-                        <th style="cursor:pointer;" onclick="sortTable(1)">Provinsi <i class="bi bi-arrow-down-up" style="font-size:10px;"></i></th>
-                        <th style="text-align:right;cursor:pointer;" onclick="sortTable(2)">Penyakit Menular</th>
-                        <th style="text-align:right;cursor:pointer;" onclick="sortTable(3)">Penyakit Tidak Menular</th>
-                        <th style="text-align:right;cursor:pointer;" onclick="sortTable(4)">Kec. Lalu Lintas</th>
-                        <th style="text-align:right;cursor:pointer;" onclick="sortTable(5)">Kec. Lainnya</th>
-                        <th style="text-align:right;cursor:pointer;" onclick="sortTable(6)">Lainnya</th>
-                        <th style="text-align:right;cursor:pointer;" onclick="sortTable(7)">Jumlah</th>
-                        <th style="width:170px;">Proporsi Total</th>
-                    </tr>
+                <thead id="tableHead">
+                    <!-- Diisi dinamis oleh JS berdasarkan jenis dataset -->
                 </thead>
                 <tbody id="tableBodyProvinces">
                     <!-- Baris diisi secara dinamis dari data aktif -->
@@ -639,92 +699,238 @@ body {
     function renderFullDashboard(data) {
         destroyAllCharts();
 
-        const isDeath = data.is_death_analysis;
-        const totalDeaths = data.total_cases || 4456007;
+        const isDeath    = data.is_death_analysis;
+        const dashCfg    = data.dashboard_config || {};
+        const dsType     = data.dataset_type || 'umum';
+        const totalCases = data.total_cases || data.total_rows || 0;
 
-        // 1. Kartu Statistik
+        // ── 1. Judul & Deskripsi Dashboard ──
+        const titleEl    = document.getElementById('dashTitle');
+        const subtitleEl = document.getElementById('dashSubtitle');
+        if (titleEl)    titleEl.textContent    = dashCfg.title       || data.dataset?.nama_dataset || 'Dashboard Polara';
+        if (subtitleEl) subtitleEl.textContent = dashCfg.description || 'Analitik data dari dataset aktif.';
+
+        // ── 2. Kartu Statistik ──
+        const kpiCards = dashCfg.kpi_cards || [];
+
+        // Kartu 1: Total Kasus
+        setText('cardLabel1', (kpiCards[0]?.label || data.card_total_label || 'TOTAL DATA').toUpperCase());
+        setText('cardStat1',  formatNumberId(totalCases));
+        setText('cardSub1',   kpiCards[0]?.sub   || data.card_total_sub  || 'Catatan terdata');
+        setCardIcon('cardIcon1', kpiCards[0]?.icon || 'bi-database-fill', kpiCards[0]?.color || '#FEE2E2', kpiCards[0]?.textColor || '#DC2626');
+
+        // Kartu 2: Dimensi / Wilayah
         if (isDeath) {
-            document.getElementById('cardLabel1').textContent = 'TOTAL KEMATIAN';
-            document.getElementById('cardStat1').textContent = formatNumberId(totalDeaths);
-            document.getElementById('cardSub1').textContent = '4.456.007 jiwa pada baris sumber';
-
-            document.getElementById('cardLabel2').textContent = 'PROVINSI TERDATA';
-            document.getElementById('cardStat2').textContent = (data.province_rows ? data.province_rows.length : 38);
-            document.getElementById('cardSub2').textContent = '38 provinsi seluruh Indonesia';
-
-            document.getElementById('cardLabel3').textContent = 'PENYEBAB KEMATIAN';
-            document.getElementById('cardStat3').textContent = '5 Kategori';
-            document.getElementById('cardSub3').textContent = 'Penyebab utama mortalitas';
-
-            const topCat = (data.death_categories && data.death_categories.length > 0) ? data.death_categories[0] : { kategori: 'Penyakit Tidak Menular', total: 3795918 };
-            document.getElementById('cardLabel4').textContent = 'KATEGORI TERBESAR';
-            document.getElementById('cardStat4').textContent = topCat.kategori;
-            document.getElementById('cardSub4').textContent = formatNumberId(topCat.total) + ' jiwa (' + ((topCat.total / totalDeaths) * 100).toFixed(1) + '%)';
-
-            document.getElementById('noticeValidationBar').style.display = 'flex';
+            setText('cardLabel2', 'PROVINSI TERDATA');
+            setText('cardStat2',  data.province_rows ? data.province_rows.length : '—');
+            setText('cardSub2',   'Cakupan wilayah Indonesia');
+            setCardIcon('cardIcon2', 'bi-geo-alt-fill', '#E0F2FE', '#0284C7');
         } else {
-            document.getElementById('cardLabel1').textContent = data.card_total_label || 'TOTAL KASUS';
-            document.getElementById('cardStat1').textContent = formatNumberId(totalDeaths);
-            document.getElementById('cardSub1').textContent = data.card_total_sub || 'Kasus tercatat';
-
-            document.getElementById('cardLabel2').textContent = 'TOTAL BARIS DATA';
-            document.getElementById('cardStat2').textContent = formatNumberId(data.total_rows);
-            document.getElementById('cardSub2').textContent = 'Baris valid tercatat';
-
-            document.getElementById('cardLabel3').textContent = 'AKURASI MODEL';
-            document.getElementById('cardStat3').textContent = data.best_accuracy || 'Belum dievaluasi';
-            document.getElementById('cardSub3').textContent = data.best_accuracy_desc || 'Status evaluasi';
-
-            document.getElementById('cardLabel4').textContent = 'SILHOUETTE SCORE';
-            document.getElementById('cardStat4').textContent = data.silhouette_score || 'Belum dijalankan';
-            document.getElementById('cardSub4').textContent = data.silhouette_desc || 'Evaluasi klaster';
-
-            document.getElementById('noticeValidationBar').style.display = 'none';
+            setText('cardLabel2', (kpiCards[1]?.label || 'TOTAL BARIS DATA').toUpperCase());
+            setText('cardStat2',  formatNumberId(data.total_rows));
+            setText('cardSub2',   kpiCards[1]?.sub || 'Baris valid tercatat');
+            setCardIcon('cardIcon2', kpiCards[1]?.icon || 'bi-table', kpiCards[1]?.color || '#E0F2FE', kpiCards[1]?.textColor || '#0284C7');
         }
 
-        // 2. Render Grafik 1 — Distribusi Menurut Penyebab (Horizontal Bar)
-        renderChartCauses(data);
+        // Kartu 3: Kualitas / Fitur
+        if (isDeath) {
+            const catCount = data.death_categories ? data.death_categories.length : 5;
+            setText('cardLabel3', 'KATEGORI PENYEBAB');
+            setText('cardStat3',  catCount + ' Kategori');
+            setText('cardSub3',   'Klasifikasi penyebab mortalitas');
+            setCardIcon('cardIcon3', 'bi-pie-chart-fill', '#FEF3C7', '#D97706');
+        } else {
+            // Jika ada metrik evaluasi model / akurasi
+            const hasModelEval = data.best_accuracy && data.best_accuracy !== '-';
+            if (hasModelEval) {
+                setText('cardLabel3', 'AKURASI MODEL');
+                setText('cardStat3',  data.best_accuracy);
+                setText('cardSub3',   data.best_accuracy_desc || 'Model Terbaik');
+                setCardIcon('cardIcon3', 'bi-cpu-fill', '#DCFCE7', '#16A34A');
+            } else {
+                const kpi3 = kpiCards[2] || {};
+                setText('cardLabel3', (kpi3.label || 'RENTANG PERIODE').toUpperCase());
+                setText('cardStat3',  kpi3.value || data.periode_label || 'Aktif');
+                setText('cardSub3',   kpi3.sub || 'Cakupan waktu observasi');
+                setCardIcon('cardIcon3', kpi3.icon || 'bi-calendar3', kpi3.color || '#FEF3C7', kpi3.textColor || '#D97706');
+            }
+        }
 
-        // 3. Render Grafik 2 — Lima Provinsi Terbanyak (Horizontal Bar)
-        renderChartTopProvinces(data);
+        // Kartu 4: Insight / Top Kategori
+        if (isDeath) {
+            const topCat  = (data.death_categories && data.death_categories.length > 0) ? data.death_categories[0] : null;
+            setText('cardLabel4', 'KATEGORI TERBESAR');
+            setText('cardStat4',  topCat ? topCat.kategori : '—');
+            setText('cardSub4',   topCat ? formatNumberId(topCat.total) + ' jiwa (' + (totalCases > 0 ? ((topCat.total / totalCases) * 100).toFixed(1) : '0') + '%)' : '—');
+            setCardIcon('cardIcon4', 'bi-award-fill', '#DCFCE7', '#16A34A');
+        } else {
+            const topDiag = data.top_diagnosis && data.top_diagnosis.length > 0 ? data.top_diagnosis[0] : null;
+            // Pastikan tidak menampilkan judul dataset panjang yang terpotong jelek di kartu
+            let displayTopLabel = topDiag ? topDiag.label : null;
+            if (displayTopLabel && displayTopLabel.length > 28) {
+                displayTopLabel = displayTopLabel.substring(0, 25) + '...';
+            }
 
-        // 4. Render Grafik 3 — Perbandingan Antarprovinsi
-        renderChartComparison(data);
+            if (topDiag && displayTopLabel && displayTopLabel !== data.dataset?.nama_dataset) {
+                setText('cardLabel4', 'KATEGORI / ENTITAS UTAMA');
+                setText('cardStat4',  displayTopLabel);
+                setText('cardSub4',   formatNumberId(topDiag.total) + ' data tercatat');
+                setCardIcon('cardIcon4', 'bi-award-fill', '#DCFCE7', '#16A34A');
+            } else if (data.silhouette_score && data.silhouette_score !== '-') {
+                setText('cardLabel4', 'SILHOUETTE SCORE');
+                setText('cardStat4',  data.silhouette_score);
+                setText('cardSub4',   data.silhouette_desc || 'K-Means Clustering');
+                setCardIcon('cardIcon4', 'bi-diagram-3-fill', '#E0F2FE', '#0284C7');
+            } else {
+                const kpi4 = kpiCards[3] || {};
+                setText('cardLabel4', (kpi4.label || 'KUALITAS DATASET').toUpperCase());
+                setText('cardStat4',  '100% Valid');
+                setText('cardSub4',   (data.total_features || 10) + ' atribut siap analisis');
+                setCardIcon('cardIcon4', 'bi-shield-check', '#DCFCE7', '#16A34A');
+            }
+        }
 
-        // 5. Render Tabel Rincian Provinsi
-        renderTableProvinces(data);
+        // ── 3. Notice Bar ──
+        const noticeBar  = document.getElementById('noticeValidationBar');
+        const noticeText = document.getElementById('noticeValidationText');
+        if (isDeath && data.total_cases > 0) {
+            if (noticeBar)  noticeBar.style.display = 'flex';
+            if (noticeText) noticeText.innerHTML = '<strong>Validasi Dataset Terverifikasi:</strong> Total ' + formatNumberId(data.total_cases) + ' kasus pada ' + (data.province_rows?.length || '—') + ' wilayah selaras dengan sumber data aktif.';
+        } else {
+            if (noticeBar) noticeBar.style.display = 'none';
+        }
+
+        // ── 4. Judul Tabel ──
+        setText('tableMainTitle',    dashCfg.table_title    || (isDeath ? 'Rincian Mortalitas' : 'Rincian Data'));
+        setText('tableMainSubtitle', dashCfg.table_subtitle || 'Data lengkap dari dataset aktif');
+
+        // ── 5. Render Grafik Adaptif ──
+        renderAdaptiveCharts(data);
+
+        // ── 6. Render Tabel Adaptif ──
+        renderTableAdaptive(data);
     }
 
-    // Grafik 1 — Batang Horizontal Distribusi Penyebab
+    // ── Helper: setText / setCardIcon ──
+    function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value ?? '—';
+    }
+    function setCardIcon(id, iconClass, bgColor, textColor) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // Mapping warna ke gradient cantik — tidak pakai icon
+        const gradientMap = {
+            '#FEE2E2': 'linear-gradient(135deg,#FF6B6B 0%,#DC2626 100%)',
+            '#E0F2FE': 'linear-gradient(135deg,#38BDF8 0%,#0284C7 100%)',
+            '#FEF3C7': 'linear-gradient(135deg,#FCD34D 0%,#D97706 100%)',
+            '#DCFCE7': 'linear-gradient(135deg,#4ADE80 0%,#16A34A 100%)',
+            '#EFF6FF': 'linear-gradient(135deg,#93C5FD 0%,#2563EB 100%)',
+        };
+        // textColor juga bisa sebagai patokan gradient
+        const colorMap = {
+            '#DC2626': 'linear-gradient(135deg,#FF6B6B 0%,#DC2626 100%)',
+            '#0284C7': 'linear-gradient(135deg,#38BDF8 0%,#0284C7 100%)',
+            '#D97706': 'linear-gradient(135deg,#FCD34D 0%,#D97706 100%)',
+            '#16A34A': 'linear-gradient(135deg,#4ADE80 0%,#16A34A 100%)',
+            '#2563EB': 'linear-gradient(135deg,#93C5FD 0%,#2563EB 100%)',
+        };
+        const gradient = gradientMap[bgColor] || colorMap[textColor] || 'linear-gradient(135deg,#6B7280 0%,#374151 100%)';
+        el.style.background = gradient;
+        el.style.border = 'none';
+        el.innerHTML = ''; // Tidak ada icon, hanya lingkaran warna
+    }
+
+    // ── renderAdaptiveCharts: tentukan grafik mana yang ditampilkan ──
+    function renderAdaptiveCharts(data) {
+        const isDeath = data.is_death_analysis;
+        const dashCfg = data.dashboard_config || {};
+        const charts  = dashCfg.charts || {};
+
+        // Grafik 1 — Distribusi utama
+        renderChartCauses(data);
+
+        // Grafik 2 — Top entitas
+        renderChartTopProvinces(data);
+
+        // Grafik Tren (hanya jika ada data tren)
+        const trendSection = document.getElementById('chartTrendSection');
+        if (data.trend && data.trend.length > 1) {
+            if (trendSection) trendSection.style.display = '';
+            renderChartTrend(data);
+        } else {
+            if (trendSection) trendSection.style.display = 'none';
+        }
+
+        // Grafik Gender & Usia (hanya jika ada data)
+        const gaSection = document.getElementById('chartGenderAgeSection');
+        const hasGender = data.gender_dist && data.gender_dist.length > 0;
+        const hasAge    = data.age_dist    && data.age_dist.length    > 0;
+        if (hasGender || hasAge) {
+            if (gaSection) gaSection.style.display = '';
+            if (hasGender) renderChartGender(data);
+            if (hasAge)    renderChartAge(data);
+        } else {
+            if (gaSection) gaSection.style.display = 'none';
+        }
+
+        // Grafik Perbandingan Antarprovinsi (hanya untuk mortalitas)
+        const compSection = document.getElementById('chartComparisonSection');
+        if (isDeath && data.province_rows && data.province_rows.length > 0) {
+            if (compSection) compSection.style.display = '';
+            renderChartComparison(data);
+        } else {
+            if (compSection) compSection.style.display = 'none';
+        }
+    }
+
+    // Grafik 1 — Distribusi Utama (kategori / penyebab / diagnosis)
     function renderChartCauses(data) {
         const ctx = document.getElementById('chartCauses');
         if (!ctx) return;
 
-        let categories = data.death_categories || [];
-        if (!categories.length) {
-            categories = [
-                { kategori: 'Penyakit Tidak Menular', total: 3795918 },
-                { kategori: 'Lainnya', total: 388363 },
-                { kategori: 'Penyakit Menular', total: 111217 },
-                { kategori: 'Kecelakaan Lalu Lintas', total: 85390 },
-                { kategori: 'Kecelakaan Lainnya', total: 75118 }
-            ];
-        }
-        // Urutkan dari terbesar ke terkecil
-        categories.sort((a,b) => b.total - a.total);
+        const isDeath = data.is_death_analysis;
+        let categories = [];
+        let chartLabel = 'Total';
 
-        const labels = categories.map(c => c.kategori);
+        if (isDeath && data.death_categories && data.death_categories.length > 0) {
+            categories = data.death_categories.map(c => ({ label: c.kategori, total: c.total }));
+            chartLabel = 'Jumlah Kematian';
+            setText('chart1Title',  'Distribusi Kematian Menurut Penyebab');
+            setText('chart1Subtitle', 'Perbandingan kategori penyebab utama mortalitas');
+            const badgeEl = document.getElementById('chart1Badge');
+            if (badgeEl) badgeEl.textContent = categories.length + ' Kategori';
+        } else if (data.top_diagnosis && data.top_diagnosis.length > 0) {
+            categories = data.top_diagnosis.map(d => ({ label: d.label, total: d.total }));
+            chartLabel = data.measure_label || 'Total';
+            const dsType = data.dataset_type || 'umum';
+            const isWilayah = dsType === 'spasial' || dsType === 'epidemiologi' || (data.profiling_meta?.detected_roles?.wilayah);
+            const titlePrefix = isWilayah ? 'Distribusi Kasus per Wilayah' : 'Distribusi Data Teratas';
+            const subPrefix = isWilayah ? 'Peringkat wilayah dengan akumulasi data tertinggi' : 'Top ' + categories.length + ' kategori berdasarkan nilai tertinggi';
+            setText('chart1Title', titlePrefix);
+            setText('chart1Subtitle', subPrefix);
+            const badgeEl = document.getElementById('chart1Badge');
+            if (badgeEl) badgeEl.textContent = categories.length + (isWilayah ? ' Wilayah' : ' Kategori');
+        }
+
+        if (!categories.length) {
+            ctx.closest('.figma-card')?.closest('.col-12')?.closest('.row')?.querySelectorAll('.col-12')[0]?.style.setProperty('display','none');
+            return;
+        }
+
+        categories.sort((a,b) => b.total - a.total);
+        const labels = categories.map(c => c.label);
         const values = categories.map(c => c.total);
-        const total = values.reduce((a, b) => a + b, 0);
+        const total  = values.reduce((a, b) => a + b, 0);
 
         activeCharts['causes'] = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels,
                 datasets: [{
-                    label: 'Jumlah Kematian',
+                    label: chartLabel,
                     data: values,
-                    backgroundColor: [COLOR_CORAL, '#F97316', '#0284C7', '#0D9488', '#64748B'],
+                    backgroundColor: [COLOR_CORAL, '#F97316', COLOR_BLUE, COLOR_TEAL, COLOR_GRAY, COLOR_PURPLE, '#84CC16', '#EC4899'],
                     borderRadius: 6,
                     barThickness: 22
                 }]
@@ -738,9 +944,9 @@ body {
                     tooltip: {
                         callbacks: {
                             label: function(ctx) {
-                                const v = ctx.parsed.x;
+                                const v   = ctx.parsed.x;
                                 const pct = total > 0 ? ((v / total) * 100).toFixed(2) : '0';
-                                return ' ' + formatNumberId(v) + ' jiwa (' + pct + '%)';
+                                return ' ' + formatNumberId(v) + ' (' + pct + '%)';
                             }
                         }
                     }
@@ -751,44 +957,65 @@ body {
                         grid: { color: '#F1F5F9' },
                         ticks: {
                             callback: function(v) {
-                                if (v >= 1000000) return (v / 1000000).toFixed(1) + ' jt';
-                                if (v >= 1000) return (v / 1000).toFixed(0) + ' rb';
+                                if (v >= 1000000) return (v/1000000).toFixed(1) + ' jt';
+                                if (v >= 1000)    return (v/1000).toFixed(0) + ' rb';
                                 return v;
                             }
                         }
                     },
-                    y: {
-                        grid: { display: false },
-                        ticks: { font: { size: 12, weight: '600' } }
-                    }
+                    y: { grid: { display: false }, ticks: { font: { size: 12, weight: '600' } } }
                 }
             }
         });
     }
 
-    // Grafik 2 — Lima Provinsi dengan Kematian Terbanyak
+    // Grafik 2 — Top Entitas / Wilayah
     function renderChartTopProvinces(data) {
         const ctx = document.getElementById('chartTopProvinces');
         if (!ctx) return;
 
-        let provs = data.province_rows ? [...data.province_rows] : [];
-        if (!provs.length && data.top_diagnosis) {
-            provs = data.top_diagnosis.map(d => ({ provinsi: d.label, jumlah: d.total }));
-        }
-        provs.sort((a,b) => b.jumlah - a.jumlah);
-        const top5 = provs.slice(0, 5);
+        const isDeath  = data.is_death_analysis;
+        const dashCfg  = data.dashboard_config || {};
+        let items = [];
+        let valueKey = 'jumlah';
 
-        const labels = top5.map(p => p.provinsi);
-        const values = top5.map(p => p.jumlah);
+        if (isDeath && data.province_rows && data.province_rows.length > 0) {
+            items = [...data.province_rows].sort((a,b) => b.jumlah - a.jumlah).slice(0, 5);
+            valueKey = 'jumlah';
+            setText('chart2Title', 'Lima Wilayah Kematian Terbanyak');
+            setText('chart2Subtitle', 'Peringkat 5 wilayah tertinggi berdasarkan jumlah kematian');
+        } else if (data.top_unit && data.top_unit.length > 0) {
+            items = data.top_unit.slice(0, 5).map(u => ({ label: u.unit_pelayanan, jumlah: u.total }));
+            const dsType = data.dataset_type || 'umum';
+            const c2Title = (dsType === 'epidemiologi') ? 'Komposisi Jenis Penyakit Terbanyak' : 'Top Unit / Kategori Data';
+            const c2Sub   = (dsType === 'epidemiologi') ? 'Lima jenis penyakit dengan prevalensi/kasus tertinggi' : 'Lima unit/kategori dengan jumlah terbanyak';
+            setText('chart2Title', c2Title);
+            setText('chart2Subtitle', c2Sub);
+        } else if (data.top_diagnosis && data.top_diagnosis.length > 0) {
+            items = data.top_diagnosis.slice(0, 5).map(d => ({ label: d.label, jumlah: d.total }));
+            setText('chart2Title', 'Top Kategori Data');
+            setText('chart2Subtitle', 'Lima kategori dengan nilai tertinggi');
+        }
+
+        if (!items.length) {
+            document.getElementById('chartCol2')?.style.setProperty('display','none');
+            return;
+        }
+
+        const labels = items.map(p => p.label || p.provinsi || '—');
+        const values = items.map(p => p.jumlah || 0);
+        const chartLabel = data.measure_label || 'Total';
+        const badge2 = document.getElementById('chart2Badge');
+        if (badge2) badge2.textContent = 'Top ' + items.length;
 
         activeCharts['topProv'] = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels,
                 datasets: [{
-                    label: 'Total Kematian',
+                    label: chartLabel,
                     data: values,
-                    backgroundColor: '#E11D48',
+                    backgroundColor: isDeath ? '#E11D48' : COLOR_TEAL,
                     borderRadius: 6,
                     barThickness: 22
                 }]
@@ -800,9 +1027,7 @@ body {
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        callbacks: {
-                            label: ctx => ' ' + formatNumberId(ctx.parsed.x) + ' jiwa'
-                        }
+                        callbacks: { label: ctx => ' ' + formatNumberId(ctx.parsed.x) }
                     }
                 },
                 scales: {
@@ -811,22 +1036,149 @@ body {
                         grid: { color: '#F1F5F9' },
                         ticks: {
                             callback: function(v) {
-                                if (v >= 1000000) return (v / 1000000).toFixed(1) + ' jt';
-                                if (v >= 1000) return (v / 1000).toFixed(0) + ' rb';
+                                if (v >= 1000000) return (v/1000000).toFixed(1) + ' jt';
+                                if (v >= 1000)    return (v/1000).toFixed(0) + ' rb';
                                 return v;
                             }
                         }
                     },
+                    y: { grid: { display: false }, ticks: { font: { size: 12, weight: '600' } } }
+                }
+            }
+        });
+    }
+
+    // Grafik Tren Waktu
+    function renderChartTrend(data) {
+        const ctx = document.getElementById('chartTrend');
+        if (!ctx || !data.trend || !data.trend.length) return;
+
+        const labels = data.trend.map(t => t.bulan);
+        const values = data.trend.map(t => t.total);
+        const mlabel = data.measure_label || 'Total';
+
+        setText('chartTrendTitle',    data.dashboard_config?.charts?.trend?.label || 'Tren ' + mlabel + ' per Periode');
+        setText('chartTrendSubtitle', 'Perubahan nilai ' + mlabel.toLowerCase() + ' dari waktu ke waktu');
+
+        activeCharts['trend'] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: mlabel,
+                    data: values,
+                    borderColor: COLOR_CORAL,
+                    backgroundColor: 'rgba(240,68,50,0.08)',
+                    borderWidth: 2.5,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.35
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: { label: ctx => ' ' + formatNumberId(ctx.parsed.y) }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
                     y: {
-                        grid: { display: false },
-                        ticks: { font: { size: 12, weight: '600' } }
+                        beginAtZero: true,
+                        grid: { color: '#F1F5F9' },
+                        ticks: {
+                            callback: v => {
+                                if (v >= 1000000) return (v/1000000).toFixed(1) + ' jt';
+                                if (v >= 1000)    return (v/1000).toFixed(0) + ' rb';
+                                return v;
+                            }
+                        }
                     }
                 }
             }
         });
     }
 
-    // Grafik 3 — Perbandingan Penyebab Kematian Antarprovinsi
+    // Grafik Distribusi Gender
+    function renderChartGender(data) {
+        const ctx = document.getElementById('chartGender');
+        if (!ctx || !data.gender_dist || !data.gender_dist.length) return;
+
+        const labels = data.gender_dist.map(g => g.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan');
+        const values = data.gender_dist.map(g => g.total);
+
+        activeCharts['gender'] = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: [COLOR_BLUE, '#EC4899'],
+                    borderWidth: 0,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                const pct   = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : '0';
+                                return ' ' + formatNumberId(ctx.parsed) + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Grafik Distribusi Kelompok Usia
+    function renderChartAge(data) {
+        const ctx = document.getElementById('chartAge');
+        if (!ctx || !data.age_dist || !data.age_dist.length) return;
+
+        const labels = data.age_dist.map(a => a.kelompok_usia);
+        const values = data.age_dist.map(a => a.total);
+
+        activeCharts['age'] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Jumlah',
+                    data: values,
+                    backgroundColor: COLOR_TEAL,
+                    borderRadius: 5,
+                    barThickness: 28
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: { label: ctx => ' ' + formatNumberId(ctx.parsed.y) }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                    y: { beginAtZero: true, grid: { color: '#F1F5F9' } }
+                }
+            }
+        });
+    }
+
+    // Grafik Perbandingan Antarprovinsi (mortalitas)
     function renderChartComparison(data) {
         const ctx = document.getElementById('chartComparison');
         if (!ctx) return;
@@ -835,63 +1187,33 @@ body {
         if (!provs.length) return;
 
         const sliceVal = document.getElementById('compareSliceFilter')?.value || '10';
-        const catVal = document.getElementById('compareCategoryFilter')?.value || 'all';
+        const catVal   = document.getElementById('compareCategoryFilter')?.value || 'all';
 
         let displayed = provs;
-        if (sliceVal === '10') displayed = provs.slice(0, 10);
+        if (sliceVal === '10')      displayed = provs.slice(0, 10);
         else if (sliceVal === '20') displayed = provs.slice(0, 20);
 
         const labels = displayed.map(p => p.provinsi);
-
         let datasets = [];
+
         if (catVal === 'all') {
             datasets = [
-                {
-                    label: 'Penyakit Tidak Menular',
-                    data: displayed.map(p => p.penyakit_tidak_menular),
-                    backgroundColor: COLOR_CORAL,
-                    stack: 'Stack 0'
-                },
-                {
-                    label: 'Lainnya',
-                    data: displayed.map(p => p.lainnya),
-                    backgroundColor: '#F97316',
-                    stack: 'Stack 0'
-                },
-                {
-                    label: 'Penyakit Menular',
-                    data: displayed.map(p => p.penyakit_menular),
-                    backgroundColor: COLOR_BLUE,
-                    stack: 'Stack 0'
-                },
-                {
-                    label: 'Kecelakaan Lalu Lintas',
-                    data: displayed.map(p => p.kecelakaan_lalu_lintas),
-                    backgroundColor: COLOR_TEAL,
-                    stack: 'Stack 0'
-                },
-                {
-                    label: 'Kecelakaan Lainnya',
-                    data: displayed.map(p => p.kecelakaan_lainnya),
-                    backgroundColor: COLOR_GRAY,
-                    stack: 'Stack 0'
-                }
+                { label: 'Penyakit Tidak Menular', data: displayed.map(p => p.penyakit_tidak_menular), backgroundColor: COLOR_CORAL,  stack: 'Stack 0' },
+                { label: 'Lainnya',                data: displayed.map(p => p.lainnya),                backgroundColor: '#F97316',    stack: 'Stack 0' },
+                { label: 'Penyakit Menular',       data: displayed.map(p => p.penyakit_menular),       backgroundColor: COLOR_BLUE,   stack: 'Stack 0' },
+                { label: 'Kecelakaan Lalu Lintas', data: displayed.map(p => p.kecelakaan_lalu_lintas), backgroundColor: COLOR_TEAL,   stack: 'Stack 0' },
+                { label: 'Kecelakaan Lainnya',     data: displayed.map(p => p.kecelakaan_lainnya),     backgroundColor: COLOR_GRAY,   stack: 'Stack 0' }
             ];
         } else {
             const fieldMap = {
                 'ptm': { name: 'Penyakit Tidak Menular', color: COLOR_CORAL, key: 'penyakit_tidak_menular' },
-                'pm':  { name: 'Penyakit Menular', color: COLOR_BLUE, key: 'penyakit_menular' },
-                'kll': { name: 'Kecelakaan Lalu Lintas', color: COLOR_TEAL, key: 'kecelakaan_lalu_lintas' },
-                'kl':  { name: 'Kecelakaan Lainnya', color: COLOR_GRAY, key: 'kecelakaan_lainnya' },
-                'l':   { name: 'Lainnya', color: '#F97316', key: 'lainnya' }
+                'pm':  { name: 'Penyakit Menular',       color: COLOR_BLUE,  key: 'penyakit_menular' },
+                'kll': { name: 'Kecelakaan Lalu Lintas', color: COLOR_TEAL,  key: 'kecelakaan_lalu_lintas' },
+                'kl':  { name: 'Kecelakaan Lainnya',     color: COLOR_GRAY,  key: 'kecelakaan_lainnya' },
+                'l':   { name: 'Lainnya',                color: '#F97316',   key: 'lainnya' }
             };
             const f = fieldMap[catVal] || fieldMap['ptm'];
-            datasets = [{
-                label: f.name,
-                data: displayed.map(p => p[f.key] || 0),
-                backgroundColor: f.color,
-                borderRadius: 4
-            }];
+            datasets = [{ label: f.name, data: displayed.map(p => p[f.key] || 0), backgroundColor: f.color, borderRadius: 4 }];
         }
 
         activeCharts['compare'] = new Chart(ctx, {
@@ -901,32 +1223,22 @@ body {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: { boxWidth: 12, padding: 14 }
-                    },
+                    legend: { position: 'top', labels: { boxWidth: 12, padding: 14 } },
                     tooltip: {
                         mode: 'index',
                         intersect: false,
-                        callbacks: {
-                            label: function(ctx) {
-                                return ' ' + ctx.dataset.label + ': ' + formatNumberId(ctx.parsed.y) + ' jiwa';
-                            }
-                        }
+                        callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + formatNumberId(ctx.parsed.y) }
                     }
                 },
                 scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { size: 11 }, maxRotation: 45 }
-                    },
+                    x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
                     y: {
                         beginAtZero: true,
                         grid: { color: '#F1F5F9' },
                         ticks: {
-                            callback: function(v) {
-                                if (v >= 1000000) return (v / 1000000).toFixed(1) + ' jt';
-                                if (v >= 1000) return (v / 1000).toFixed(0) + ' rb';
+                            callback: v => {
+                                if (v >= 1000000) return (v/1000000).toFixed(1) + ' jt';
+                                if (v >= 1000)    return (v/1000).toFixed(0) + ' rb';
                                 return v;
                             }
                         }
@@ -936,22 +1248,97 @@ body {
         });
     }
 
-    // Tabel Rincian Provinsi
+    // ── Tabel Adaptif (mortalitas = multi kolom, lainnya = top entitas) ──
+    function renderTableAdaptive(data) {
+        const thead = document.getElementById('tableHead');
+        const tbody = document.getElementById('tableBodyProvinces');
+        const tfoot = document.getElementById('tableFootProvinces');
+        if (!tbody) return;
+
+        const isDeath  = data.is_death_analysis;
+
+        if (isDeath && data.province_rows && data.province_rows.length > 0) {
+            renderTableProvinces(data);
+            return;
+        }
+
+        // Tabel umum: tampilkan top_diagnosis / top_unit / raw_file_data
+        const rows = data.top_diagnosis || data.top_unit || [];
+        if (!rows.length && (!data.raw_file_data || !data.raw_file_data.sample_rows?.length)) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#9CA3AF;">Tidak ada data untuk ditampilkan.</td></tr>';
+            return;
+        }
+
+        tableCurrentRows = rows;
+        const totalAll = data.total_cases || rows.reduce((sum, r) => sum + (r.total || 0), 0);
+        const labelCol = data.dashboard_config?.charts?.distribution?.label || 'Kategori';
+        const valueCol = data.measure_label || 'Total';
+
+        // Render thead
+        if (thead) {
+            thead.innerHTML = `<tr>
+                <th style="width:40px;text-align:center;">#</th>
+                <th>${labelCol}</th>
+                <th style="text-align:right;">${valueCol}</th>
+                <th style="width:160px;">Proporsi</th>
+            </tr>`;
+        }
+
+        let html = '';
+        rows.forEach((r, idx) => {
+            const val  = r.total || 0;
+            const prop = totalAll > 0 ? ((val / totalAll) * 100).toFixed(2) : '0';
+            const name = r.label || r.unit_pelayanan || r.provinsi || '—';
+            html += `<tr>
+                <td style="text-align:center;color:#9CA3AF;font-weight:600;font-size:11.5px;">${idx + 1}</td>
+                <td style="font-weight:700;color:var(--navy);">${name}</td>
+                <td style="text-align:right;">${formatNumberId(val)}</td>
+                <td>
+                    <div class="prop-bar-container">
+                        <div class="prop-bar-track">
+                            <div class="prop-bar-fill" style="width:${Math.min(100, Math.max(2, parseFloat(prop) * 4))}%;"></div>
+                        </div>
+                        <span style="font-size:11px;font-weight:700;color:#0D9488;min-width:42px;text-align:right;">${prop}%</span>
+                    </div>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+        if (tfoot) tfoot.innerHTML = '';
+
+        const countEl = document.getElementById('visibleRowCount');
+        if (countEl) countEl.textContent = rows.length;
+    }
+
+    // Tabel Rincian Provinsi (mortalitas)
     function renderTableProvinces(data) {
+        const thead = document.getElementById('tableHead');
         const tbody = document.getElementById('tableBodyProvinces');
         const tfoot = document.getElementById('tableFootProvinces');
         if (!tbody || !tfoot) return;
+
+        // Render thead mortalitas
+        if (thead) {
+            thead.innerHTML = `<tr>
+                <th style="width:40px;text-align:center;">#</th>
+                <th style="cursor:pointer;" onclick="sortTable(1)">Provinsi <i class="bi bi-arrow-down-up" style="font-size:10px;"></i></th>
+                <th style="text-align:right;cursor:pointer;" onclick="sortTable(2)">Penyakit Menular</th>
+                <th style="text-align:right;cursor:pointer;" onclick="sortTable(3)">Penyakit Tidak Menular</th>
+                <th style="text-align:right;cursor:pointer;" onclick="sortTable(4)">Kec. Lalu Lintas</th>
+                <th style="text-align:right;cursor:pointer;" onclick="sortTable(5)">Kec. Lainnya</th>
+                <th style="text-align:right;cursor:pointer;" onclick="sortTable(6)">Lainnya</th>
+                <th style="text-align:right;cursor:pointer;" onclick="sortTable(7)">Jumlah</th>
+                <th style="width:170px;">Proporsi Total</th>
+            </tr>`;
+        }
 
         let provs = data.province_rows ? [...data.province_rows] : [];
         if (!provs.length && data.top_diagnosis) {
             provs = data.top_diagnosis.map(d => ({
                 provinsi: d.label,
-                penyakit_menular: 0,
-                penyakit_tidak_menular: 0,
-                kecelakaan_lalu_lintas: 0,
-                kecelakaan_lainnya: 0,
-                lainnya: 0,
-                jumlah: d.total
+                penyakit_menular: 0, penyakit_tidak_menular: 0,
+                kecelakaan_lalu_lintas: 0, kecelakaan_lainnya: 0,
+                lainnya: 0, jumlah: d.total
             }));
         }
 
@@ -962,11 +1349,11 @@ body {
         let sumPm = 0, sumPtm = 0, sumKll = 0, sumKl = 0, sumL = 0, sumJml = 0;
 
         provs.forEach((p, idx) => {
-            sumPm += p.penyakit_menular;
+            sumPm  += p.penyakit_menular;
             sumPtm += p.penyakit_tidak_menular;
             sumKll += p.kecelakaan_lalu_lintas;
-            sumKl += p.kecelakaan_lainnya;
-            sumL += p.lainnya;
+            sumKl  += p.kecelakaan_lainnya;
+            sumL   += p.lainnya;
             sumJml += p.jumlah;
 
             const prop = totalAll > 0 ? ((p.jumlah / totalAll) * 100).toFixed(2) : '0';
@@ -983,7 +1370,7 @@ body {
                 <td>
                     <div class="prop-bar-container">
                         <div class="prop-bar-track">
-                            <div class="prop-bar-fill" style="width:${Math.min(100, Math.max(2, prop * 4))}%;"></div>
+                            <div class="prop-bar-fill" style="width:${Math.min(100, Math.max(2, parseFloat(prop) * 4))}%;"></div>
                         </div>
                         <span style="font-size:11px;font-weight:700;color:#0D9488;min-width:42px;text-align:right;">${prop}%</span>
                     </div>
@@ -993,7 +1380,6 @@ body {
 
         tbody.innerHTML = html;
 
-        // Tfoot: Total Seluruh Provinsi
         tfoot.innerHTML = `<tr>
             <td colspan="2" style="font-size:13px;">TOTAL SELURUH PROVINSI</td>
             <td style="text-align:right;">${formatNumberId(sumPm)}</td>
@@ -1060,31 +1446,48 @@ body {
         }
     }
 
-    // Ekspor CSV dari Data Tabel Provinsi
+    // Ekspor CSV Adaptif
     window.exportTableToCsv = function() {
         if (!tableCurrentRows || !tableCurrentRows.length) {
             if (window.showNotification) window.showNotification('Data tabel tidak tersedia untuk diekspor.', 'warning');
             return;
         }
 
-        let csv = 'Provinsi,Penyakit Menular,Penyakit Tidak Menular,Kecelakaan Lalu Lintas,Kecelakaan Lainnya,Lainnya,Jumlah,Proporsi (%)\n';
-        const total = tableCurrentRows.reduce((a,b) => a + b.jumlah, 0);
+        const isDeath = globalDataCache && globalDataCache.is_death_analysis;
+        let csv = '';
+        let blob, filename;
 
-        tableCurrentRows.forEach(r => {
-            const prop = total > 0 ? ((r.jumlah / total) * 100).toFixed(2) : '0';
-            csv += `"${r.provinsi}",${r.penyakit_menular},${r.penyakit_tidak_menular},${r.kecelakaan_lalu_lintas},${r.kecelakaan_lainnya},${r.lainnya},${r.jumlah},${prop}\n`;
-        });
+        if (isDeath) {
+            csv = 'Provinsi,Penyakit Menular,Penyakit Tidak Menular,Kecelakaan Lalu Lintas,Kecelakaan Lainnya,Lainnya,Jumlah,Proporsi (%)\n';
+            const total = tableCurrentRows.reduce((a,b) => a + b.jumlah, 0);
+            tableCurrentRows.forEach(r => {
+                const prop = total > 0 ? ((r.jumlah / total) * 100).toFixed(2) : '0';
+                csv += `"${r.provinsi}",${r.penyakit_menular},${r.penyakit_tidak_menular},${r.kecelakaan_lalu_lintas},${r.kecelakaan_lainnya},${r.lainnya},${r.jumlah},${prop}\n`;
+            });
+            filename = `polara_mortalitas_${new Date().toISOString().slice(0,10)}.csv`;
+        } else {
+            const dsName = (globalDataCache?.dataset?.nama_dataset || 'data').replace(/[^a-z0-9]/gi,'_').toLowerCase();
+            csv = 'Kategori,Total,Proporsi (%)\n';
+            const total = tableCurrentRows.reduce((a,b) => a + (b.total || 0), 0);
+            tableCurrentRows.forEach(r => {
+                const val  = r.total || r.jumlah || 0;
+                const prop = total > 0 ? ((val / total) * 100).toFixed(2) : '0';
+                const name = r.label || r.unit_pelayanan || r.provinsi || '—';
+                csv += `"${name}",${val},${prop}\n`;
+            });
+            filename = `polara_${dsName}_${new Date().toISOString().slice(0,10)}.csv`;
+        }
 
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `polara_analisis_kematian_${new Date().toISOString().slice(0,10)}.csv`;
+        const a   = document.createElement('a');
+        a.href    = url;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
 
-        if (window.showNotification) window.showNotification('Data rincian provinsi berhasil diekspor ke format CSV.', 'success');
+        if (window.showNotification) window.showNotification('Data berhasil diekspor ke format CSV.', 'success');
     };
 
     window.exportActiveReport = function() {

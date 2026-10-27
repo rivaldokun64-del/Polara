@@ -199,4 +199,22 @@ class App extends BaseConfig
      * @see http://www.w3.org/TR/CSP/
      */
     public bool $CSPEnabled = false;
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        // Hanya override baseURL di lingkungan Vercel/serverless
+        // Di localhost/XAMPP, gunakan nilai dari .env (app.baseURL)
+        if (getenv('VERCEL') || getenv('VERCEL_URL')) {
+            $vercelUrl = getenv('VERCEL_URL');
+            if ($vercelUrl) {
+                $this->baseURL = 'https://' . rtrim($vercelUrl, '/') . '/';
+            } elseif (!empty($_SERVER['HTTP_HOST'])) {
+                $protocol = (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ? 'https://' : 'http://';
+                $this->baseURL = $protocol . $_SERVER['HTTP_HOST'] . '/';
+            }
+        }
+        // Jika bukan Vercel, biarkan baseURL dari .env atau default class property
+    }
 }
