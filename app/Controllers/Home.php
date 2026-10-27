@@ -23,6 +23,99 @@ class Home extends BaseController
         ]);
     }
 
+    public function migrateTables()
+    {
+        $db = Database::connect('default');
+
+        $queries = [
+            "CREATE TABLE IF NOT EXISTS `datasets` (
+              `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+              `nama_dataset` varchar(255) NOT NULL,
+              `nama_file_asli` varchar(255) DEFAULT NULL,
+              `nama_file_internal` varchar(255) DEFAULT NULL,
+              `ukuran_file` bigint(20) unsigned DEFAULT 0,
+              `format_file` varchar(20) DEFAULT NULL,
+              `deskripsi` text DEFAULT NULL,
+              `periode_awal` date DEFAULT NULL,
+              `periode_akhir` date DEFAULT NULL,
+              `jumlah_baris` int(10) unsigned DEFAULT 0,
+              `status` enum('uploaded','diproses','siap','error') DEFAULT 'uploaded',
+              `profiling_meta` longtext DEFAULT NULL,
+              `id_user` int(10) unsigned NOT NULL,
+              `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+              `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS `analisis` (
+              `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+              `id_dataset` int(10) unsigned NOT NULL,
+              `id_user` int(10) unsigned NOT NULL,
+              `nama_analisis` varchar(255) NOT NULL,
+              `metode` varchar(50) NOT NULL,
+              `status` enum('draft','proses','selesai','gagal') NOT NULL DEFAULT 'draft',
+              `parameter` json DEFAULT NULL,
+              `hasil_ringkasan` json DEFAULT NULL,
+              `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+              `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS `data_kunjungan` (
+              `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+              `id_dataset` int(10) unsigned NOT NULL,
+              `faskes` varchar(255) DEFAULT NULL,
+              `kelompok_usia` varchar(50) DEFAULT NULL,
+              `jenis_kelamin` varchar(10) DEFAULT NULL,
+              `kategori_peserta` varchar(100) DEFAULT NULL,
+              `status_peserta` varchar(50) DEFAULT NULL,
+              `jenis_kunjungan` varchar(100) DEFAULT NULL,
+              `poli_tujuan` varchar(100) DEFAULT NULL,
+              `diagnosis` varchar(255) DEFAULT NULL,
+              `jumlah_kunjungan` int(11) DEFAULT 1,
+              `jumlah` int(11) DEFAULT 1,
+              `kategori_kasus` varchar(100) DEFAULT NULL,
+              `raw_data` json DEFAULT NULL,
+              `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS `dataset_columns` (
+              `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+              `id_dataset` int(10) unsigned NOT NULL,
+              `nama_kolom` varchar(100) NOT NULL,
+              `tipe_data` varchar(50) NOT NULL DEFAULT 'string',
+              `peran` varchar(50) NOT NULL DEFAULT 'fitur',
+              `urutan` int(10) unsigned NOT NULL DEFAULT 1,
+              PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS `hasil_cluster` (
+              `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+              `id_analisis` int(10) unsigned NOT NULL,
+              `id_kunjungan` int(10) unsigned NOT NULL,
+              `cluster` int(11) NOT NULL,
+              PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS `hasil_klasifikasi` (
+              `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+              `id_analisis` int(10) unsigned NOT NULL,
+              `id_kunjungan` int(10) unsigned NOT NULL,
+              `kelas_aktual` varchar(100) DEFAULT NULL,
+              `kelas_prediksi` varchar(100) DEFAULT NULL,
+              PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        ];
+
+        foreach ($queries as $q) {
+            $db->query($q);
+        }
+
+        return redirect()->to(site_url('dashboard'));
+    }
+
+
     /**
      * Halaman Dashboard Terproteksi Polara (Memerlukan Autentikasi)
      */
