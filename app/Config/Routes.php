@@ -9,7 +9,7 @@ $routes->get('/', 'Home::index');
 $routes->get('login', 'Auth::login');
 $routes->post('login', 'Auth::attemptLogin');
 $routes->get('logout', 'Auth::logout');
-$routes->get('migrate-tables', 'Home::migrateTables');
+
 
 
 
